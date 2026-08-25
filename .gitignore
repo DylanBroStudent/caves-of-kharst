@@ -1,0 +1,16 @@
+# Visual Studio temporary files & build outputs
+[Oo]bj/
+[Bb]in/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.user
+.user
+x64/
+x86/
+[Dd]ebug/
+[Rr]elease/
+build/
+builds/
+Publish/
