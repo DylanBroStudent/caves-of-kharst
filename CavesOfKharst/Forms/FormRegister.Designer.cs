@@ -46,7 +46,7 @@
             txtEmail.Location = new Point(26, 112);
             txtEmail.Name = "txtEmail";
             txtEmail.Size = new Size(474, 35);
-            txtEmail.TabIndex = 0;
+            txtEmail.TabIndex = 2;
             // 
             // btnRegister
             // 
@@ -55,7 +55,7 @@
             btnRegister.Location = new Point(335, 371);
             btnRegister.Name = "btnRegister";
             btnRegister.Size = new Size(165, 42);
-            btnRegister.TabIndex = 3;
+            btnRegister.TabIndex = 7;
             btnRegister.Text = "Register";
             btnRegister.UseVisualStyleBackColor = true;
             btnRegister.Click += btnRegister_Click;
@@ -67,7 +67,7 @@
             label1.Location = new Point(26, 79);
             label1.Name = "label1";
             label1.Size = new Size(63, 30);
-            label1.TabIndex = 4;
+            label1.TabIndex = 1;
             label1.Text = "Email";
             // 
             // label2
@@ -78,7 +78,7 @@
             label2.Location = new Point(174, 19);
             label2.Name = "label2";
             label2.Size = new Size(164, 50);
-            label2.TabIndex = 5;
+            label2.TabIndex = 0;
             label2.Text = "Register";
             // 
             // label3
@@ -88,7 +88,7 @@
             label3.Location = new Point(26, 150);
             label3.Name = "label3";
             label3.Size = new Size(99, 30);
-            label3.TabIndex = 4;
+            label3.TabIndex = 3;
             label3.Text = "Password";
             // 
             // label4
@@ -98,7 +98,7 @@
             label4.Location = new Point(26, 221);
             label4.Name = "label4";
             label4.Size = new Size(179, 30);
-            label4.TabIndex = 4;
+            label4.TabIndex = 5;
             label4.Text = "Confirm Password";
             // 
             // btnBack
@@ -108,7 +108,7 @@
             btnBack.Location = new Point(26, 371);
             btnBack.Name = "btnBack";
             btnBack.Size = new Size(165, 42);
-            btnBack.TabIndex = 3;
+            btnBack.TabIndex = 8;
             btnBack.Text = "Back";
             btnBack.UseVisualStyleBackColor = true;
             btnBack.Click += btnBack_Click;
@@ -119,7 +119,7 @@
             ctrlPassword1.Location = new Point(26, 183);
             ctrlPassword1.Name = "ctrlPassword1";
             ctrlPassword1.Size = new Size(474, 35);
-            ctrlPassword1.TabIndex = 6;
+            ctrlPassword1.TabIndex = 4;
             // 
             // ctrlPassword2
             // 
@@ -131,8 +131,10 @@
             // 
             // FormRegister
             // 
+            AcceptButton = btnRegister;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
+            CancelButton = btnBack;
             ClientSize = new Size(512, 425);
             Controls.Add(ctrlPassword2);
             Controls.Add(ctrlPassword1);

@@ -14,7 +14,7 @@ namespace CavesOfKharst.DataAccess
 
         }
 
-        public bool Login(string email, string password)
+        public User Login(string email, string password)
         {
             try
             {
@@ -31,7 +31,15 @@ namespace CavesOfKharst.DataAccess
 
                 using (MySqlDataReader reader = command.ExecuteReader())
                 {
-                    return reader.Read();
+                    if (reader.Read())
+                    {
+                        int id = reader.GetInt32("user_account_id");
+                        string userEmail = reader.GetString("email");
+                        string userPassword = reader.GetString("password");
+                        return new User(id, userEmail, userPassword);
+                    }
+                    // return null if no user found
+                    return null;
                 }
             }
             finally

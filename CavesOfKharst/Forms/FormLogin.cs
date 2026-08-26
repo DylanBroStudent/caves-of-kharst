@@ -31,17 +31,19 @@ namespace CavesOfKharst
             string password = ctrlPassword.password;
 
             UserDAO userDAO = new UserDAO();
-            
-            // Call the Login method and check if the login is successful
-            if (userDAO.Login(email, password))
+
+            // get user
+            User user = userDAO.Login(email, password);
+            if (user != null)
             {
-                MessageBox.Show("Login successful!");
+                FormCharacterSelect characterSelect = new FormCharacterSelect(user, this);
+                characterSelect.Show();
+                this.Hide();
             }
             else
             {
-                MessageBox.Show("Invalid email or password.");
+                MessageBox.Show("Login failed. Please check your email and password.");
             }
-            
         }
         private void btnRegister_Click(object sender, EventArgs e)
         {

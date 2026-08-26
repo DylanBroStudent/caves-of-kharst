@@ -45,7 +45,7 @@
             txtEmail.Location = new Point(12, 179);
             txtEmail.Name = "txtEmail";
             txtEmail.Size = new Size(468, 35);
-            txtEmail.TabIndex = 0;
+            txtEmail.TabIndex = 2;
             // 
             // btnLogin
             // 
@@ -54,7 +54,7 @@
             btnLogin.Location = new Point(349, 341);
             btnLogin.Name = "btnLogin";
             btnLogin.Size = new Size(131, 38);
-            btnLogin.TabIndex = 2;
+            btnLogin.TabIndex = 5;
             btnLogin.Text = "Login";
             btnLogin.UseVisualStyleBackColor = true;
             btnLogin.Click += btnLogin_Click;
@@ -66,7 +66,7 @@
             btnRegister.Location = new Point(12, 341);
             btnRegister.Name = "btnRegister";
             btnRegister.Size = new Size(131, 38);
-            btnRegister.TabIndex = 2;
+            btnRegister.TabIndex = 6;
             btnRegister.Text = "Register";
             btnRegister.UseVisualStyleBackColor = true;
             btnRegister.Click += btnRegister_Click;
@@ -79,7 +79,7 @@
             label1.Location = new Point(112, 58);
             label1.Name = "label1";
             label1.Size = new Size(288, 50);
-            label1.TabIndex = 3;
+            label1.TabIndex = 0;
             label1.Text = "Caves of Kharst";
             // 
             // label2
@@ -99,7 +99,7 @@
             label3.Location = new Point(12, 146);
             label3.Name = "label3";
             label3.Size = new Size(63, 30);
-            label3.TabIndex = 3;
+            label3.TabIndex = 1;
             label3.Text = "Email";
             // 
             // ctrlPassword
@@ -112,6 +112,7 @@
             // 
             // FormLogin
             // 
+            AcceptButton = btnLogin;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(492, 392);
@@ -124,7 +125,7 @@
             Controls.Add(txtEmail);
             Name = "FormLogin";
             Text = "form_login";
-            Load += this.formLogin_Load;
+            Load += formLogin_Load;
             ResumeLayout(false);
             PerformLayout();
         }
