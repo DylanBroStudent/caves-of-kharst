@@ -30,5 +30,10 @@ namespace CavesOfKharst.Forms
             formLogin.Show();
             this.Close();
         }
+
+        private void FormCharacterSelect_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }

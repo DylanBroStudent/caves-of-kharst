@@ -91,6 +91,7 @@
             Controls.Add(label1);
             Name = "FormCharacterSelect";
             Text = "FormCharacterSelect";
+            Load += FormCharacterSelect_Load;
             ResumeLayout(false);
             PerformLayout();
         }
