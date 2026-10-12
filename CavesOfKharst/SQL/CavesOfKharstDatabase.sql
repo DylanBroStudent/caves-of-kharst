@@ -119,8 +119,10 @@ BEGIN
 		item_id 	  int(10) 	   NOT NULL AUTO_INCREMENT PRIMARY KEY,
 		`name` 		  varchar(64)  NOT NULL UNIQUE,
 		`description` varchar(255) NOT NULL,
-		`type` 		  varchar(64)  NOT NULL,
+        stack_size	  int(10) 	   NOT NULL DEFAULT 1,
 		effect_id 	  int(10),
+        point_value   int(10),
+		`type` 		  ENUM("consumable", "quest", "coin", "key")  NOT NULL,
 		CONSTRAINT fk_item_effect FOREIGN KEY (effect_id) REFERENCES effect (effect_id)
 	);
 
@@ -255,16 +257,28 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS populate_game_data //
 CREATE PROCEDURE populate_game_data()
 BEGIN
-    -- rooms
+	-- ITEMS
+    INSERT INTO item (`name`, `type`, `effect_id`, stack_size, point_value, `description`) VALUES
+    -- coins
+    ("Coin", "coin", NULL, 999999, 1, "Golden currency used to purchase goods."),
+    -- keys
+    ("Key",  "key", NULL, 5, 10, "A mysteriously pristine key"),
+    -- gems
+    ('Brilliant Teleport Gem', 	'consumable', NULL, 3, 50, 'Teleports the caster to a specific tile anywhere in the room.'),
+    ('Brilliant Fireball Gem', 	'consumable', NULL, 3, 50, 'Launches a fireball at a specific tile anywhere in the room.'),
+    ('Radiant Fireball Gem', 	'consumable', NULL, 3, 50, 'Casts fireball across the eight tiles surrounding the caster.'),
+    ('Brilliant Healing Gem', 	'consumable', NULL, 3, 50, 'Restores the health of a single target anywhere in the room.');
+    
+    -- ROOMS
     INSERT INTO room (`name`, height, width, minimum_depth) VALUES
     ("lobby", 7, 9, 0);
-    -- Structures
-    INSERT INTO structure(`name`, description, `type`) VALUES
+    -- STRUCTURES
+    INSERT INTO structure(`name`,`type`, description ) VALUES
     -- Lobby structures
-    ("shop", "The shopkeeper looms over his wares, eager to make a deal.", 'shop'),
-    ("stash", "Your enchanted chest, capable of storing many things.", "stash"),
-    ("wardrobe", "A wardrobe containing an endless supply of robes and dyes.", "wardrobe"),
-    ("rock","A large rock stands in your way.","obstacle");
+    ("shop", 	 "shop", 	 "The shopkeeper looms over his wares, eager to make a deal."),
+    ("stash", 	 "stash", 	 "Your enchanted chest, capable of storing many things."),
+    ("wardrobe", "wardrobe", "A wardrobe containing an endless supply of robes and dyes."),
+    ("rock",	 "obstacle", "A large rock stands in your way.");
     -- Spawn tables
     INSERT INTO spawn_table (`name`) VALUES
     ("empty"),
@@ -272,32 +286,46 @@ BEGIN
     ("stash"),
     ("wardrobe"),
     ("rock"),
-    ("rock_50");
+    ("rock_50"),
+    ("coins_few");
     -- Spawn tables entries
     -- shop
     INSERT INTO spawn_table_entry (spawn_table_id, structure_id, npc_id, item_id, quantity, weight) VALUES
     ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "shop"),
-     (SELECT structure_id   FROM structure   WHERE `name` = "shop"),
-	  NULL, NULL, NULL, 1),
+		(SELECT structure_id   FROM structure   WHERE `name` = "shop"),
+		NULL, NULL, NULL, 1),
 	-- stash
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "stash"),
-     (SELECT structure_id   FROM structure   WHERE `name` = "stash"),
-	  NULL, NULL, NULL, 1),
+		(SELECT structure_id   FROM structure   WHERE `name` = "stash"),
+		NULL, NULL, NULL, 1),
 	-- wardrobe
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "wardrobe"),
-     (SELECT structure_id   FROM structure   WHERE `name` = "wardrobe"),
-	  NULL, NULL, NULL, 1),
-      -- Rock
+		(SELECT structure_id   FROM structure   WHERE `name` = "wardrobe"),
+		NULL, NULL, NULL, 1),
+	-- Rock
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock"),
-     (SELECT structure_id   FROM structure   WHERE `name` = "rock"),
-	  NULL, NULL, NULL, 1),
-      -- Rock 50
+		(SELECT structure_id   FROM structure   WHERE `name` = "rock"),
+		NULL, NULL, NULL, 1),
+	-- Rock 50
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),
-     (SELECT structure_id   FROM structure   WHERE `name` = "rock"),
-	  NULL, NULL, NULL, 1),
+		(SELECT structure_id   FROM structure   WHERE `name` = "rock"),
+		NULL, NULL, NULL, 1),
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),
-      NULL, NULL, NULL, NULL, 1);
-	
+		NULL, NULL, NULL, NULL, 1),
+	-- coins_few
+    ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),
+		NULL, NULL, 
+		(SELECT item_id FROM item WHERE `name` = "Coin"),
+		1, 3),
+	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),
+		NULL, NULL, 
+		(SELECT item_id FROM item WHERE `name` = "Coin"),
+		3, 2),
+	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),
+		NULL, NULL, 
+		(SELECT item_id FROM item WHERE `name` = "Coin"),
+		50, 1);
+        
     -- Tiles
     INSERT INTO tile (`name`, spawn_table_id, symbol) VALUES
     ("floor", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "empty"), 	 "."),
@@ -305,14 +333,15 @@ BEGIN
     ("stash", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "stash"), 	 "H"),
     ("wardrobe", (SELECT spawn_table_id FROM spawn_table WHERE `name` = "wardrobe"), "W"),
     ("rock", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock"), 	 "R"),
-    ("rock_50",  (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),  "r");
+    ("rock_50",  (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),  "r"),
+    ("coins_few",(SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),"c");
     
 -- call layout interpreter to populate room data
 -- NO INDENTATION ALLOWED!!!
 CALL game_populate_room_layout(
 "lobby",
 ".......rr
-r........
+r.c......
 ........H
 S........
 ........W
@@ -442,15 +471,15 @@ BEGIN
     -- Create the inventories
     INSERT INTO inventory (
 		player_character_id,
-        type
+        `type`
 	)
     VALUES
 		(character_id_new, "carried"),
-        (character_id_new, "Storage");
+        (character_id_new, "stash");
 END //
 DELIMITER ; 
 
--- Play as Character
+-- Play as Character 
 -- character_play
 DELIMITER //
 DROP PROCEDURE IF EXISTS character_play //
@@ -1011,6 +1040,35 @@ DELIMITER ;
 
 -- GAMEPLAY --
 -- INVENTORY --
+
+-- get inventory info
+-- inventory_get
+DELIMITER //
+DROP PROCEDURE IF EXISTS inventory_get //
+CREATE PROCEDURE inventory_get(
+    IN player_character_id_in INT,
+    IN inventory_type_in 	  VARCHAR(64)
+)
+BEGIN
+    SELECT
+        s.slot_no,
+        i.`name` AS item_name,
+        i.`description`,
+        s.quantity,
+        i.stack_size,
+        i.point_value,
+        i.`type` AS item_type
+    FROM inventory AS inv
+    JOIN slot AS s
+        ON s.inventory_id = inv.inventory_id
+    JOIN item AS i
+        ON i.item_id = s.item_id
+    WHERE inv.player_character_id = player_character_id_in
+      AND inv.`type` = inventory_type_in
+    ORDER BY s.slot_no;
+END //
+DELIMITER ;
+
 -- Move Item in Inventory
 -- inventory_move_item
 
@@ -1018,11 +1076,197 @@ DELIMITER ;
 -- inventory_transfer_item
 
 -- Pick up Item
--- inventory_pickup
+-- item_pick_up
+DELIMITER //
+DROP PROCEDURE IF EXISTS item_pick_up //
+CREATE PROCEDURE item_pick_up(
+    IN player_character_id_in INT,
+    IN entity_instance_id_in BIGINT
+)
+BEGIN
+    DECLARE character_tile_id BIGINT;
+    DECLARE carried_inventory_id BIGINT;
+    DECLARE item_id_var INT;
+    DECLARE item_quantity INT;
+    DECLARE max_stack_size_var INT;
+    DECLARE slot_no_var INT;
+    DECLARE slot_quantity INT;
+    DECLARE transfer_quantity INT;
+
+    -- Find the character's tile
+    SELECT tile_instance_id
+    INTO character_tile_id
+    FROM entity_instance
+    WHERE player_character_id = player_character_id_in
+    LIMIT 1;
+
+    IF character_tile_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Character has no world entity';
+    END IF;
+
+    -- Find the ground item
+    SELECT item_id, COALESCE(quantity, 1)
+    INTO item_id_var, item_quantity
+    FROM entity_instance
+    WHERE entity_instance_id = entity_instance_id_in
+      AND tile_instance_id = character_tile_id
+      AND item_id IS NOT NULL;
+
+    IF item_id_var IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Item is not on the character tile';
+    END IF;
+
+    -- Find the carried inventory and stack limit
+    SELECT min(inventory_id)
+    INTO carried_inventory_id
+    FROM inventory
+    WHERE player_character_id = player_character_id_in
+      AND `type` = 'carried';
+
+    SELECT stack_size
+    INTO max_stack_size_var
+    FROM item
+    WHERE item_id = item_id_var;
+
+    IF carried_inventory_id IS NULL OR max_stack_size_var IS NULL
+       OR item_quantity <= 0 OR max_stack_size_var <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Invalid inventory or item';
+    END IF;
+
+    -- loop to fill existing stacks
+    fill_stacks: WHILE item_quantity > 0 DO
+        SELECT min(slot_no)
+        INTO slot_no_var
+        FROM slot
+        WHERE inventory_id = carried_inventory_id
+          AND item_id = item_id_var
+          AND quantity < max_stack_size_var;
+		
+        -- full
+        IF slot_no_var IS NULL THEN
+            LEAVE fill_stacks;
+        END IF;
+
+        SELECT quantity
+        INTO slot_quantity
+        FROM slot
+        WHERE inventory_id = carried_inventory_id
+          AND slot_no = slot_no_var;
+
+        SET transfer_quantity = least(
+            item_quantity,
+            max_stack_size_var - slot_quantity
+        );
+
+        UPDATE slot
+        SET quantity = quantity + transfer_quantity
+        WHERE inventory_id = carried_inventory_id
+          AND slot_no = slot_no_var;
+
+        SET item_quantity = item_quantity - transfer_quantity;
+    END WHILE;
+
+    -- Create new stacks
+    WHILE item_quantity > 0 DO
+        SELECT COALESCE(max(slot_no), 0) + 1
+        INTO slot_no_var
+        FROM slot
+        WHERE inventory_id = carried_inventory_id;
+
+        SET transfer_quantity = least(item_quantity, max_stack_size_var);
+
+        INSERT INTO slot (slot_no, inventory_id, item_id, quantity)
+        VALUES (slot_no_var, carried_inventory_id, item_id_var, transfer_quantity);
+
+        SET item_quantity = item_quantity - transfer_quantity;
+    END WHILE;
+
+    DELETE FROM entity_instance
+    WHERE entity_instance_id = entity_instance_id_in;
+
+    SELECT 'Picked up successfully' AS result;
+END //
+DELIMITER ;
 
 -- Drop Item
 -- inventory_drop
+DELIMITER //
+DROP PROCEDURE IF EXISTS inventory_drop //
+CREATE PROCEDURE inventory_drop(
+    IN player_character_id_in INT,
+    IN slot_no_in INT
+)
+BEGIN
+    DECLARE character_tile_id 	 BIGINT DEFAULT NULL;
+    DECLARE carried_inventory_id BIGINT DEFAULT NULL;
+    DECLARE item_id_var 		 INT DEFAULT NULL;
+    DECLARE item_quantity 		 INT DEFAULT NULL;
+    DECLARE entity_count 		 INT DEFAULT 0;
 
+    -- get the character's world entity
+    SELECT count(*)
+    INTO entity_count
+    FROM entity_instance
+    WHERE player_character_id = player_character_id_in;
+
+    IF entity_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Character has no world entity';
+    END IF;
+
+    SELECT tile_instance_id
+    INTO character_tile_id
+    FROM entity_instance
+    WHERE player_character_id = player_character_id_in
+    LIMIT 1;
+
+    -- get the character's carried inventory
+    SELECT min(inventory_id)
+    INTO carried_inventory_id
+    FROM inventory
+    WHERE player_character_id = player_character_id_in
+      AND `type` = 'carried';
+
+    IF carried_inventory_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Carried inventory not found';
+    END IF;
+
+    -- get the item stack in the selected slot
+    SELECT item_id, quantity
+    INTO item_id_var, item_quantity
+    FROM slot
+    WHERE inventory_id = carried_inventory_id
+      AND slot_no = slot_no_in;
+
+    IF item_id_var IS NULL OR item_quantity <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Invalid inventory slot';
+    END IF;
+
+    -- Create the ground item on the character's tile
+    INSERT INTO entity_instance (
+        tile_instance_id,
+        item_id,
+        quantity
+    )
+    VALUES (
+        character_tile_id,
+        item_id_var,
+        item_quantity
+    );
+
+    -- Remove the entire inventory stack
+    DELETE FROM slot
+    WHERE inventory_id = carried_inventory_id
+      AND slot_no = slot_no_in;
+
+    SELECT 'Dropped successfully' AS result;
+END //
+DELIMITER ;
 
 -- MOVEMENT --
 -- Move in direction
@@ -1493,237 +1737,3 @@ CALL populate_game_data();
 
 
 
--- TESTING --
--- ACCOUNT --
--- account_register(email, password, admin)
--- regular
-CALL account_register("TestPlayer@kharst.game","Admin123", FALSE);
--- admin
-CALL account_register("TestAdmin@kharst.game","Admin123", TRUE);
--- check
-SELECT * FROM user_account;
-
--- account_login(email, password)
-CALL account_login("TestPlayer@kharst.game", "Admin123");
--- wrong password
-CALL account_login("TestPlayer@kharst.game", "wrongpassword");
--- no account
-CALL account_login("wrongemail", "wrongpassword");
-
--- account_lockout(email)
-CALL account_lockout("TestPlayer@kharst.game");
--- check account
-SELECT * FROM user_account
-WHERE email = "TestPlayer@kharst.game";
--- attempt login
-CALL account_login("TestPlayer@kharst.game", "Admin123");
--- reset
-UPDATE user_account
-SET lockout_time = NULL
-WHERE email = "TestPlayer@kharst.game";
-
--- account_update_email(old_email, new_email)
-CALL account_update_email("TestPlayer@kharst.game", "UpdatedPlayer@kharst.game");
--- check account
-SELECT * FROM user_account
-WHERE email = "UpdatedPlayer@kharst.game";
-
--- account update password(email, new password)
-CALL account_update_password("UpdatedPlayer@kharst.game", "UpdatedPassword");
--- check account
-SELECT * FROM user_account
-WHERE email = "UpdatedPlayer@kharst.game";
--- attempt login with old credentials
-CALL account_login("UpdatedPlayer@kharst.game", "Admin123");
--- attempt login with new credentials
-CALL account_login("UpdatedPlayer@kharst.game", "UpdatedPassword");
-
--- account_delete(email)
-CALL account_delete("UpdatedPlayer@kharst.game");
--- check account
-SELECT * FROM user_account
-WHERE email = "UpdatedPlayer@kharst.game";
--- attempt login
-CALL account_login("UpdatedPlayer@kharst.game", "UpdatedPassword");
-
--- CHARACTER --
-SELECT user_account_id INTO @tadmin_account FROM user_account
-WHERE email = "TestAdmin@kharst.game";
--- character_create(name, account ID, health, hue)
-CALL character_create("Tadmin", @tadmin_account);
--- check character
-SELECT * FROM player_character WHERE `name` = "Tadmin";
--- delete character
-SELECT player_character_id INTO @character_id FROM player_character WHERE `name` = "Tadmin";
-CALL character_delete(@character_id);
--- Confirm the character is gone
-SELECT * FROM player_character WHERE `name` = "Tadmin";
-
--- create again to test
-CALL character_create("Tadmin", @tadmin_account);
-SELECT * FROM player_character WHERE `name` = "Tadmin";
--- CHARACTER PLAY
--- character_play(player_character_id_in)
-CALL character_play(2);
--- check parties
-SELECT * FROM party;
--- View that lobby's tiles and entities
-CALL debug_view_room(1);
-
--- Update character colour
-SELECT player_character_id INTO @character_id FROM player_character WHERE `name` = "Tadmin";
--- Check original colour
-SELECT player_character_id, `name`, hue 
-FROM player_character 
-WHERE player_character_id = @character_id;
--- Update character colour
-CALL character_update_colour(@character_id, 180);
--- Check updated colour
-SELECT player_character_id, `name`, hue 
-FROM player_character 
-WHERE player_character_id = @character_id;
-
--- PARTY --
--- New account
-CALL account_register("TestPlayer@kharst.game", "Admin123", FALSE);
-SELECT * FROM user_account;
-
--- New character
-SELECT user_account_id INTO @tayer_account FROM user_account
-WHERE email = "TestPlayer@kharst.game";
-CALL character_create("Tayer", @tayer_account);
-
--- Get Tayer's character ID
-SELECT player_character_id
-INTO @character_2_id
-FROM player_character
-WHERE `name` = "Tayer";
-
--- Play game (creates Tayer's original party and lobby)
-CALL character_play(@character_2_id);
-
--- Get Tayer's original party
-SELECT party_id
-INTO @old_party_id
-FROM player_character
-WHERE player_character_id = @character_2_id;
-
--- Save the original lobby and game IDs
-SELECT room_instance_id, game_id
-INTO @old_room_id, @old_game_id
-FROM party
-WHERE party_id = @old_party_id;
-
--- Check parties and Tayer's room
-SELECT * FROM party;
-CALL debug_view_room(@old_room_id);
-
--- Get Tadmin's character ID and party
-SELECT player_character_id, party_id
-INTO @character_1_id, @party_id
-FROM player_character
-WHERE `name` = "Tadmin";
-
--- Invite Tayer to Tadmin's party
-CALL party_invite(
-    @party_id,
-    @character_1_id,
-    @character_2_id
-);
--- Check the invitation exists
-SELECT * FROM party_invite;
--- Accept the invitation and join Tadmin's party
-CALL party_add_player(
-    @party_id,
-    @character_2_id
-);
-
--- Check both characters' parties
-SELECT player_character_id, `name`, party_id
-FROM player_character
-WHERE player_character_id IN (@character_1_id, @character_2_id);
--- Check the invitation was removed
-SELECT * FROM party_invite;
--- Check the old party was deleted
-SELECT * FROM party WHERE party_id = @old_party_id;
--- Check the old lobby was deleted
-SELECT * FROM room_instance WHERE room_instance_id = @old_room_id;
--- Check the old game was deleted (if it had one)
-SELECT * FROM game WHERE game_id = @old_game_id;
-
--- communication
-CALL party_send_message(
-    @character_1_id,
-    'Greetings Tayer!'
-);
--- party_get_messages(character id)
-CALL party_get_messages(@character_2_id);
-
--- Get Tayer's character ID, party, and room
-SELECT
-    pc.player_character_id,
-    pc.party_id,
-    p.room_instance_id
-INTO
-    @character_1_id,
-    @party_id,
-    @tayer_room_id
-FROM player_character AS pc
-JOIN party AS p
-    ON p.party_id = pc.party_id
-WHERE pc.`name` = 'Tayer';
-
-CALL debug_view_room(@tayer_room_id);
-
--- party_remove_player( player_character_id, Destination party id)
-CALL party_remove_player(@character_2_id, Null);
-
-SELECT player_character_id, name, party_id, ready
-FROM player_character
-WHERE `name` = 'Tayer';
-
--- Get Tayer's new data
-SELECT
-    pc.player_character_id,
-    pc.party_id,
-    p.room_instance_id
-INTO
-    @tayer_id,
-    @party_id,
-    @tayer_room_id
-FROM player_character AS pc
-JOIN party AS p
-    ON p.party_id = pc.party_id
-WHERE pc.`name` = 'Tayer';
-
--- view tayer's new room
-CALL debug_view_room(@tayer_room_id);
-
--- check parties
-SELECT player_character_id, `name`, party_id FROM player_character;
--- check new party messages
-CALL party_get_messages(@tayer_id);
-
--- movement
--- invalid input
-CALL gameplay_move_in_direction(@tayer_id, 'q');
--- move right
-CALL debug_view_room(@tayer_room_id);
-CALL gameplay_move_in_direction(@tayer_id, 'd');
-CALL debug_view_room(@tayer_room_id);
-
-CALL gameplay_move_in_direction(@tayer_id, 's');
-CALL gameplay_move_in_direction(@tayer_id, 's');
-CALL gameplay_move_in_direction(@tayer_id, 's');
--- blocked by wall
-CALL gameplay_move_in_direction(@tayer_id, 's');
-CALL debug_view_room(@tayer_room_id);
-
-CALL gameplay_move_in_direction(@tayer_id, 'd');
--- blocked by rock
-CALL gameplay_move_in_direction(@tayer_id, 'd');
-CALL debug_view_room(@tayer_room_id);
-
--- check tick event
-SHOW EVENTS;
-SELECT * FROM party;
