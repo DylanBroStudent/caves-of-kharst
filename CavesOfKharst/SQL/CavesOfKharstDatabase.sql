@@ -250,18 +250,6 @@ BEGIN
 	);
 END //
 
--- populate test data
-DELIMITER //
-DROP PROCEDURE IF EXISTS populate_test_data //
-CREATE PROCEDURE populate_test_data()
-BEGIN
-	-- test accounts
-	INSERT INTO user_account (email, `password`, `role`) VALUES 
-    ('redwin@kharst.game'	  , 'Admin123', 'admin'),
-    ('greenwacke@kharst.game' , 'Admin123', 'player'),
-    ('blueppereel@kharst.game', 'Admin123', 'player');
-END //
-
 -- populate game data
 DELIMITER //
 DROP PROCEDURE IF EXISTS populate_game_data //
@@ -1397,6 +1385,10 @@ DELIMITER ;
 -- Process NPC behavior
 -- game_process_npc
 
+-- Process effects
+-- game_process_effects
+
+
 -- End game
 -- game_end
 
@@ -1493,9 +1485,13 @@ DELIMITER ;
 
 -- call procedures
 -- SETUP
+-- create the database
 CALL create_database();
-CALL populate_test_data();
+-- populate the database()
 CALL populate_game_data();
+
+
+
 
 -- TESTING --
 -- ACCOUNT --
@@ -1551,8 +1547,10 @@ WHERE email = "UpdatedPlayer@kharst.game";
 CALL account_login("UpdatedPlayer@kharst.game", "UpdatedPassword");
 
 -- CHARACTER --
+SELECT user_account_id INTO @tadmin_account FROM user_account
+WHERE email = "TestAdmin@kharst.game";
 -- character_create(name, account ID, health, hue)
-CALL character_create("Tadmin", 5);
+CALL character_create("Tadmin", @tadmin_account);
 -- check character
 SELECT * FROM player_character WHERE `name` = "Tadmin";
 -- delete character
@@ -1562,7 +1560,7 @@ CALL character_delete(@character_id);
 SELECT * FROM player_character WHERE `name` = "Tadmin";
 
 -- create again to test
-CALL character_create("Tadmin", 5);
+CALL character_create("Tadmin", @tadmin_account);
 SELECT * FROM player_character WHERE `name` = "Tadmin";
 -- CHARACTER PLAY
 -- character_play(player_character_id_in)
@@ -1591,7 +1589,9 @@ CALL account_register("TestPlayer@kharst.game", "Admin123", FALSE);
 SELECT * FROM user_account;
 
 -- New character
-CALL character_create("Tayer", 6);
+SELECT user_account_id INTO @tayer_account FROM user_account
+WHERE email = "TestPlayer@kharst.game";
+CALL character_create("Tayer", @tayer_account);
 
 -- Get Tayer's character ID
 SELECT player_character_id
