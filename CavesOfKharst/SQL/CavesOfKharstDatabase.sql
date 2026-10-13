@@ -488,7 +488,7 @@ END //
 DELIMITER ;
 
 
-
+-- 11. Update data of a player.
 -- Update Account Email
 -- account_update_email
 DELIMITER //
@@ -519,7 +519,7 @@ END //
 DELIMITER ;
 
 
-
+-- 12. Delete a player.
 -- Delete Account
 -- account_delete
 DELIMITER //
@@ -797,7 +797,7 @@ END //
 DELIMITER ;
 
 
-
+-- 10. Add new players. 
 -- Add Player to Party
 -- party_add_player
 -- NEED TRANSACTION
@@ -2389,12 +2389,28 @@ BEGIN
         SET cave_generated = TRUE
         WHERE game_id = game_id_current;
     END LOOP;
-    
     CLOSE starting_games;
+    
+    -- loop through games and end them after 30 minutes
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR NOT FOUND
+            SET finished_ending = TRUE;
+        OPEN ending_games;
+        ending_loop: LOOP
+            FETCH ending_games INTO game_id_current;
+            IF finished_ending THEN
+                LEAVE ending_loop;
+            END IF;
+
+            CALL game_end(game_id_current);
+        END LOOP;
+
+        CLOSE ending_games;
+    END;
+    
     -- TODO: Process NPCs
     -- TODO: Process timed effects
 END //
-
 DELIMITER ;
 
 -- event for handling ticks
@@ -2411,15 +2427,19 @@ BEGIN
 END //
 DELIMITER ; 
 
+-- 8. Move an Item (NPC effect). 
 -- Process NPC behavior
 -- game_process_npc
 
-
+-- TODO
 
 -- Process effects
 -- game_process_effects
 
+-- TODO
 
+
+-- 9. Kill running games.
 -- End game
 -- game_end
 DELIMITER //
