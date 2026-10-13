@@ -1,5 +1,3 @@
-USE caves_of_kharst;
-
 -- TESTING --
 -- ACCOUNT --
 -- account_register(email, password, admin)
@@ -141,22 +139,22 @@ CALL character_play(@tayer_character);
 
 -- Invite Tayer to Tadmin's party
 SELECT party_id 
-INTO @party_id
+INTO @tadmin_party_id
 FROM player_character
 WHERE user_account_id = @tadmin_character;
 
 CALL party_invite(
-    @party_id,
+    @tadmin_party_id,
     @tadmin_character,
     @tayer_character
 );
 
 -- Check the invitation exists
-SELECT * FROM party_invite;
+-- SELECT * FROM party_invite;
 
 -- Accept the invitation and join Tadmin's party
 CALL party_add_player(
-    @party_id,
+    @tadmin_party_id,
     @tayer_character
 );
 
@@ -278,4 +276,75 @@ CALL inventory_get(@tayer_id, 'stash');
 
 CALL inventory_drop(@tayer_id, 1);
 
--- CALL debug_view_room(@tayer_room_id);
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+CALL gameplay_move_in_direction(@tayer_id, 's');
+CALL gameplay_move_in_direction(@tayer_id, 's');
+
+-- Invite Tadmin to Tayer's party
+SELECT party_id 
+INTO @tayer_party_id
+FROM player_character
+WHERE user_account_id = @tayer_character;
+
+CALL party_invite(
+    @tayer_party_id,
+    @tayer_character,
+    @tadmin_character
+);
+
+CALL party_add_player(
+    @tayer_party_id,
+    @tadmin_character
+);
+
+CALL gameplay_move_in_direction(@tayer_character, 's');
+CALL gameplay_move_in_direction(@tayer_character, 'w');
+
+CALL gameplay_move_in_direction(@tadmin_character, 's');
+
+CALL character_logout(@tayer_character);
+
+CALL account_login("TestPlayer@kharst.game", "Admin123");
+CALL character_play(@tayer_character);
+
+-- get tayer's new data
+SELECT
+    pc.player_character_id,
+    pc.party_id,
+    p.room_instance_id
+INTO
+    @tayer_id,
+    @tayer_party_id,
+    @tayer_room_id
+FROM player_character AS pc
+JOIN party AS p
+    ON p.party_id = pc.party_id
+WHERE pc.`name` = 'Tayer';
+
+-- Invite Tadmin to Tayer's party
+SELECT party_id
+INTO @tayer_party_id
+FROM player_character
+WHERE player_character_id = @tayer_character;
+
+CALL party_invite(
+    @tayer_party_id,
+    @tayer_character,
+    @tadmin_character
+);
+
+
+CALL party_add_player(
+    @tayer_party_id,
+    @tadmin_character
+);
+
+CALL room_get(@tadmin_character);
+CALL party_toggle_ready(@tadmin_character);
+CALL party_toggle_ready(@tayer_character);
+
+CALL debug_view_room(@tayer_room_id);
+DO sleep(11);
+CALL debug_view_room(@tayer_room_id);
+

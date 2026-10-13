@@ -25,9 +25,11 @@ BEGIN
 	);
 
 	CREATE TABLE game (
-		game_id    int(10) 		NOT NULL AUTO_INCREMENT PRIMARY KEY,
-		seed 	   int(10) 		NOT NULL,
-		start_time timestamp(6)
+		game_id    	   int(10) 		NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		seed 	   	   int(10) 		NOT NULL,
+		start_time 	   timestamp(6),
+        cave_generated boolean 		NOT NULL DEFAULT FALSE,
+        ended		   boolean		NOT NULL DEFAULT FALSE
 	);
 
 	CREATE TABLE room (
@@ -45,6 +47,14 @@ BEGIN
 		depth 			 int(10)    NOT NULL,
 		CONSTRAINT fk_room_instance_room FOREIGN KEY (room_id) REFERENCES room (room_id),
 		CONSTRAINT fk_room_instance_game FOREIGN KEY (game_id) REFERENCES game (game_id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE room_doorway (
+		room_id    int(10) NOT NULL,
+		position_x int(10) NOT NULL,
+		position_y int(10) NOT NULL,
+		PRIMARY KEY (room_id, position_x, position_y),
+		CONSTRAINT fk_room_doorway FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE
 	);
 
 	CREATE TABLE party (
@@ -69,17 +79,27 @@ BEGIN
 	);
 
 	CREATE TABLE party_invite (
-		party_invite_id 	 INT AUTO_INCREMENT PRIMARY KEY,
-		party_id 			 INT NOT NULL,
-		inviter_character_id INT NOT NULL,
-		invitee_character_id INT NOT NULL,
-		created_at 			 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		party_invite_id 	 int(10)   AUTO_INCREMENT PRIMARY KEY,
+		party_id 			 int(10)   NOT NULL,
+		inviter_character_id int(10)   NOT NULL,
+		invitee_character_id int(10)   NOT NULL,
+		created_at 			 timestamp DEFAULT CURRENT_TIMESTAMP,
 		CONSTRAINT fk_party_invite_party 		 FOREIGN KEY (party_id) 			REFERENCES party (party_id)						  ON DELETE CASCADE,
 		CONSTRAINT fk_party_invite_inviter 		 FOREIGN KEY (inviter_character_id) REFERENCES player_character (player_character_id) ON DELETE CASCADE,
 		CONSTRAINT fk_party_invite_invitee 		 FOREIGN KEY (invitee_character_id) REFERENCES player_character (player_character_id) ON DELETE CASCADE,
 		-- don't allow duplicates
         CONSTRAINT uq_party_invite_party_invitee UNIQUE (party_id, invitee_character_id) 
     );
+
+	CREATE TABLE party_scoreboard (
+		party_id 			int(10) 	NOT NULL,
+		player_character_id int(10) 	NOT NULL,
+		player_name 		varchar(64) NOT NULL,
+		score 				int(10) 	NOT NULL DEFAULT 0,
+		PRIMARY KEY (party_id, player_character_id),
+		CONSTRAINT fk_scoreboard_party 		  FOREIGN KEY (party_id) 			REFERENCES party (party_id) 					  ON DELETE CASCADE,
+		CONSTRAINT fk_scoreboard_character_id FOREIGN KEY (player_character_id) REFERENCES player_character (player_character_id) ON DELETE CASCADE
+	);
 
 	CREATE TABLE inventory (
 		inventory_id 		bigint(19)  NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -268,17 +288,17 @@ BEGIN
     ('Brilliant Fireball Gem', 	'consumable', NULL, 3, 50, 'Launches a fireball at a specific tile anywhere in the room.'),
     ('Radiant Fireball Gem', 	'consumable', NULL, 3, 50, 'Casts fireball across the eight tiles surrounding the caster.'),
     ('Brilliant Healing Gem', 	'consumable', NULL, 3, 50, 'Restores the health of a single target anywhere in the room.');
-    
-    -- ROOMS
-    INSERT INTO room (`name`, height, width, minimum_depth) VALUES
-    ("lobby", 7, 9, 0);
+
+
     -- STRUCTURES
     INSERT INTO structure(`name`,`type`, description ) VALUES
     -- Lobby structures
     ("shop", 	 "shop", 	 "The shopkeeper looms over his wares, eager to make a deal."),
     ("stash", 	 "stash", 	 "Your enchanted chest, capable of storing many things."),
     ("wardrobe", "wardrobe", "A wardrobe containing an endless supply of robes and dyes."),
-    ("rock",	 "obstacle", "A large rock stands in your way.");
+    ("rock",	 "obstacle", "A large rock stands in your way."),
+    -- Cave Structures
+    ("doorway",	 "doorway",  "A passage connecting this room to another.");
     -- Spawn tables
     INSERT INTO spawn_table (`name`) VALUES
     ("empty"),
@@ -287,31 +307,39 @@ BEGIN
     ("wardrobe"),
     ("rock"),
     ("rock_50"),
-    ("coins_few");
+    ("coins_few"),
+    ("loot1");
+    
     -- Spawn tables entries
+    
     -- shop
     INSERT INTO spawn_table_entry (spawn_table_id, structure_id, npc_id, item_id, quantity, weight) VALUES
     ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "shop"),
 		(SELECT structure_id   FROM structure   WHERE `name` = "shop"),
 		NULL, NULL, NULL, 1),
-	-- stash
+	
+    -- stash
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "stash"),
 		(SELECT structure_id   FROM structure   WHERE `name` = "stash"),
 		NULL, NULL, NULL, 1),
-	-- wardrobe
+	
+    -- wardrobe
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "wardrobe"),
 		(SELECT structure_id   FROM structure   WHERE `name` = "wardrobe"),
 		NULL, NULL, NULL, 1),
-	-- Rock
+	
+    -- Rock
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock"),
 		(SELECT structure_id   FROM structure   WHERE `name` = "rock"),
 		NULL, NULL, NULL, 1),
+        
 	-- Rock 50
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),
 		(SELECT structure_id   FROM structure   WHERE `name` = "rock"),
 		NULL, NULL, NULL, 1),
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),
 		NULL, NULL, NULL, NULL, 1),
+        
 	-- coins_few
     ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),
 		NULL, NULL, 
@@ -324,23 +352,57 @@ BEGIN
 	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),
 		NULL, NULL, 
 		(SELECT item_id FROM item WHERE `name` = "Coin"),
-		50, 1);
+		50, 1),
+	
+    -- loot1
+	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),
+        NULL, NULL,
+        (SELECT item_id FROM item WHERE `name` = "Brilliant Teleport Gem"),
+        1, 1),
+    ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),
+        NULL, NULL,
+        (SELECT item_id FROM item WHERE `name` = "Brilliant Fireball Gem"),
+        1, 1),
+    ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),
+        NULL, NULL,
+        (SELECT item_id FROM item WHERE `name` = "Radiant Fireball Gem"),
+        1, 1),
+    ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),
+        NULL, NULL,
+        (SELECT item_id FROM item WHERE `name` = "Brilliant Healing Gem"),
+        1, 1);
+        
+        
         
     -- Tiles
     INSERT INTO tile (`name`, spawn_table_id, symbol) VALUES
+    -- empty
     ("floor", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "empty"), 	 "."),
+    -- structures
+    -- lobby
     ("shop", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "shop"), 	 "S"),
     ("stash", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "stash"), 	 "H"),
     ("wardrobe", (SELECT spawn_table_id FROM spawn_table WHERE `name` = "wardrobe"), "W"),
+    -- cave
+    ("doorway", (SELECT spawn_table_id  FROM spawn_table WHERE `name` = "empty"), 	 "D"),
+    -- objects
     ("rock", 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock"), 	 "R"),
     ("rock_50",  (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),  "r"),
-    ("coins_few",(SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),"c");
+    -- items
+    ("coins_few",(SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),"c"),
+    ("loot1",	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),	 "1");
+
+
+    -- ROOMS
+    INSERT INTO room (`name`, height, width, minimum_depth) VALUES
+    ("lobby", 	   7, 9, 0),
+    ("crossroads", 7, 9, 0);
     
--- call layout interpreter to populate room data
+-- call layout interpreter to populate room data for each room
 -- NO INDENTATION ALLOWED!!!
 CALL game_populate_room_layout(
 "lobby",
-".......rr
+"....D..rr
 r.c......
 ........H
 S........
@@ -348,9 +410,32 @@ S........
 r........
 Rr.r...Rr"
 );
+CALL game_populate_room_layout(
+"crossroads",
+"RRrr..rrr
+r1rr....1
+rrr....r.
+.........
+.....r...
+r...1...1
+Rr.rD..Rr"
+);
+
 END //
 
--- ACCOUNT MANAGEMENT --
+/*
+ __    __       _______. _______ .______              ___       ______   ______   ______    __    __  .__   __. .___________.
+|  |  |  |     /       ||   ____||   _  \            /   \     /      | /      | /  __  \  |  |  |  | |  \ |  | |           |
+|  |  |  |    |   (----`|  |__   |  |_)  |          /  ^  \   |  ,----'|  ,----'|  |  |  | |  |  |  | |   \|  | `---|  |----`
+|  |  |  |     \   \    |   __|  |      /          /  /_\  \  |  |     |  |     |  |  |  | |  |  |  | |  . `  |     |  |     
+|  `--'  | .----)   |   |  |____ |  |\  \----.    /  _____  \ |  `----.|  `----.|  `--'  | |  `--'  | |  |\   |     |  |     
+ \______/  |_______/    |_______|| _| `._____|   /__/     \__\ \______| \______| \______/   \______/  |__| \__|     |__|     
+                                                                                                                                                                                                                                                                                                                      
+*/
+
+-- USER ACCOUNT --
+
+-- 2. Player registration
 -- Register New Account
 -- account_register
 DELIMITER //
@@ -370,6 +455,8 @@ BEGIN
 END //
 DELIMITER ; 
 
+
+-- 1. Player login, including lock out
 -- Log into Account
 -- account_login
 DELIMITER //
@@ -386,6 +473,8 @@ BEGIN
 END //
 DELIMITER ;
 
+
+
 -- Lock out Account
 -- account_lockout
 DELIMITER //
@@ -397,6 +486,8 @@ BEGIN
     WHERE email = email_in;
 END //
 DELIMITER ;
+
+
 
 -- Update Account Email
 -- account_update_email
@@ -413,6 +504,8 @@ BEGIN
 END //
 DELIMITER ;
 
+
+
 -- Update Account Password
 -- account_update_password
 DELIMITER //
@@ -424,6 +517,8 @@ BEGIN
     WHERE email = email_in;
 END //
 DELIMITER ;
+
+
 
 -- Delete Account
 -- account_delete
@@ -438,6 +533,10 @@ BEGIN
 END //
 DELIMITER ; 
 
+
+/*
+
+*/
 
 -- CHARACTER MANAGEMENT --
 -- Create Character
@@ -478,6 +577,8 @@ BEGIN
         (character_id_new, "stash");
 END //
 DELIMITER ; 
+
+
 
 -- Play as Character 
 -- character_play
@@ -521,10 +622,11 @@ BEGIN
 END //
 DELIMITER ; 
 
+
+
 -- Delete Character
 -- character_delete
 DELIMITER //
-
 DROP PROCEDURE IF EXISTS character_delete //
 CREATE PROCEDURE character_delete (
     IN player_character_id_in INT
@@ -539,6 +641,8 @@ BEGIN
     WHERE player_character_id = player_character_id_in;
 END //
 DELIMITER ;
+
+
 
 -- Edit Character Colour
 -- character_update_colour
@@ -556,12 +660,85 @@ END //
 DELIMITER ;
 
 
+
+-- Log Out Character
+-- character_logout
+DELIMITER //
+DROP PROCEDURE IF EXISTS character_logout //
+CREATE PROCEDURE character_logout (
+    IN player_character_id_in INT
+)
+BEGIN
+    DECLARE old_party_id INT DEFAULT NULL;
+    DECLARE old_room_id BIGINT DEFAULT NULL;
+    DECLARE old_game_id INT DEFAULT NULL;
+
+    -- Find the character's current party.
+    SELECT party_id
+    INTO old_party_id
+    FROM player_character
+    WHERE player_character_id = player_character_id_in;
+
+    IF old_party_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+			SET MESSAGE_TEXT = 'Character is not in a party';
+    END IF;
+
+    -- Get the party's room and game.
+    SELECT
+        p.room_instance_id,
+        COALESCE(p.game_id, ri.game_id)
+    INTO old_room_id, old_game_id
+    FROM party AS p
+    JOIN room_instance AS ri
+        ON ri.room_instance_id = p.room_instance_id
+    WHERE p.party_id = old_party_id;
+
+    -- Remove the character from the world.
+    DELETE FROM entity_instance
+    WHERE player_character_id = player_character_id_in;
+
+    -- Remove party membership without creating another lobby.
+    UPDATE player_character
+    SET party_id = NULL,
+        ready = FALSE
+    WHERE player_character_id = player_character_id_in;
+
+    -- Delete the party and lobby if nobody remains.
+    IF NOT EXISTS (
+        SELECT 1
+        FROM player_character
+        WHERE party_id = old_party_id
+    ) THEN
+        DELETE FROM party
+        WHERE party_id = old_party_id;
+
+        DELETE FROM room_instance
+        WHERE room_instance_id = old_room_id;
+
+        IF old_game_id IS NOT NULL THEN
+            DELETE FROM game
+            WHERE game_id = old_game_id;
+        END IF;
+    END IF;
+END //
+DELIMITER ;
+
+/*
+.______      ___      .______     .___________.____    ____ 
+|   _  \    /   \     |   _  \    |           |\   \  /   / 
+|  |_)  |  /  ^  \    |  |_)  |   `---|  |----` \   \/   /  
+|   ___/  /  /_\  \   |      /        |  |       \_    _/   
+|  |     /  _____  \  |  |\  \----.   |  |         |  |     
+| _|    /__/     \__\ | _| `._____|   |__|         |__|     
+                                                            
+*/
+
 -- PARTY --
 -- Create party
 -- party_create
 DELIMITER //
 DROP PROCEDURE IF EXISTS party_create //
-
 CREATE PROCEDURE party_create (
     IN  player_character_id_in INT,
     OUT party_id_out 		   INT
@@ -586,6 +763,8 @@ BEGIN
     WHERE player_character_id = player_character_id_in;
 END //
 DELIMITER ;
+
+
 
 -- Invite Player
 -- party_invite
@@ -616,6 +795,8 @@ BEGIN
         inviter_character_id = VALUES(inviter_character_id);
 END //
 DELIMITER ;
+
+
 
 -- Add Player to Party
 -- party_add_player
@@ -675,7 +856,7 @@ BEGIN
     -- Get the old room, game, and room name.
     SELECT
         p.room_instance_id,
-        COALESCE(p.game_id, ri.game_id),
+        coalesce(p.game_id, ri.game_id),
         r.name
     INTO
         old_room_id,
@@ -782,6 +963,8 @@ IF old_party_id <> party_id_in
 END //
 DELIMITER ;
 
+
+
 -- Delete Party
 -- party_delete
 DELIMITER //
@@ -823,6 +1006,8 @@ BEGIN
     END IF;
 END //
 DELIMITER ;
+
+
 
 -- Remove Player from Party
 -- party_remove_player
@@ -961,14 +1146,125 @@ BEGIN
 END //
 DELIMITER ;
 
+
+
 -- Toggle player Ready
 -- party_toggle_ready
+DELIMITER //
+DROP PROCEDURE IF EXISTS party_toggle_ready //
+CREATE PROCEDURE party_toggle_ready (
+    IN player_character_id_in INT
+)
+BEGIN
+    DECLARE party_id_out INT;
+    DECLARE ready_status BOOLEAN;
+    DECLARE unready_count INT;
+
+    -- Get the character's party and current ready status.
+    SELECT party_id, ready
+    INTO party_id_out, ready_status
+    FROM player_character
+    WHERE player_character_id = player_character_id_in;
+
+    IF party_id_out IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Character is not in a party';
+    END IF;
+
+    -- Toggle the character's ready status.
+    UPDATE player_character
+    SET ready = NOT ready
+    WHERE player_character_id = player_character_id_in;
+
+    -- Check whether everyone in the party is ready.
+    SELECT count(*)
+    INTO unready_count
+    FROM player_character
+    WHERE party_id = party_id_out
+      AND ready = FALSE;
+
+    -- Start the game only when everyone is ready.
+    IF unready_count = 0 THEN
+        CALL game_start(party_id_out);
+    END IF;
+END //
+DELIMITER ;
+
 
 
 -- Start Game
 -- party_start_game
+DELIMITER //
+DROP PROCEDURE IF EXISTS game_start //
+CREATE PROCEDURE game_start (
+    IN party_id_in INT
+)
+BEGIN
+    DECLARE game_id_new INT;
+    DECLARE lobby_room_id BIGINT;
+    DECLARE unready_count INT;
+    DECLARE party_game_id INT;
+
+    -- Get the party's lobby and current game.
+    SELECT room_instance_id, game_id
+    INTO lobby_room_id, party_game_id
+    FROM party
+    WHERE party_id = party_id_in;
+
+    -- Prevent starting the same party twice.
+    IF party_game_id IS NOT NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'This party already has a game';
+    END IF;
+
+    -- Confirm that every party member is ready.
+    SELECT count(*)
+    INTO unready_count
+    FROM player_character
+    WHERE party_id = party_id_in
+      AND ready = FALSE;
+
+    IF unready_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Not all party members are ready';
+    END IF;
+
+    -- Create the game with a start time 10 seconds ahead.
+    INSERT INTO game (
+        seed,
+        start_time
+    )
+    VALUES (
+        floor(rand() * 2147483647),
+        CURRENT_TIMESTAMP + INTERVAL 10 SECOND
+    );
+
+    SET game_id_new = last_insert_id();
+
+    -- Assign the new game to the party.
+    UPDATE party
+    SET game_id = game_id_new
+    WHERE party_id = party_id_in;
+    
+    -- unready all party members
+    UPDATE player_character
+	SET ready = FALSE
+	WHERE party_id = party_id_in;
+END //
+
+DELIMITER ;
 
 
+
+/*
+  ______   ______   .___  ___. .___  ___.  __    __  .__   __.  __    ______     ___   .___________. __    ______   .__   __. 
+ /      | /  __  \  |   \/   | |   \/   | |  |  |  | |  \ |  | |  |  /      |   /   \  |           ||  |  /  __  \  |  \ |  | 
+|  ,----'|  |  |  | |  \  /  | |  \  /  | |  |  |  | |   \|  | |  | |  ,----'  /  ^  \ `---|  |----`|  | |  |  |  | |   \|  | 
+|  |     |  |  |  | |  |\/|  | |  |\/|  | |  |  |  | |  . `  | |  | |  |      /  /_\  \    |  |     |  | |  |  |  | |  . `  | 
+|  `----.|  `--'  | |  |  |  | |  |  |  | |  `--'  | |  |\   | |  | |  `----./  _____  \   |  |     |  | |  `--'  | |  |\   | 
+ \______| \______/  |__|  |__| |__|  |__|  \______/  |__| \__| |__|  \______/__/     \__\  |__|     |__|  \______/  |__| \__| 
+                                                                                                                              
+*/
 
 -- COMMUNICATION --
 -- Send message
@@ -1037,8 +1333,90 @@ BEGIN
     ORDER BY m.sent_at ASC, m.message_id ASC;
 END //
 DELIMITER ; 
+/*
+  _______      ___      .___  ___.  _______ .______    __          ___   ____    ____ 
+ /  _____|    /   \     |   \/   | |   ____||   _  \  |  |        /   \  \   \  /   / 
+|  |  __     /  ^  \    |  \  /  | |  |__   |  |_)  | |  |       /  ^  \  \   \/   /  
+|  | |_ |   /  /_\  \   |  |\/|  | |   __|  |   ___/  |  |      /  /_\  \  \_    _/   
+|  |__| |  /  _____  \  |  |  |  | |  |____ |  |      |  `----./  _____  \   |  |     
+ \______| /__/     \__\ |__|  |__| |_______|| _|      |_______/__/     \__\  |__|     
+
+*/
 
 -- GAMEPLAY --
+
+-- Get Room data
+-- room_get
+DELIMITER //
+DROP PROCEDURE IF EXISTS room_get //
+CREATE PROCEDURE room_get (
+    IN player_character_id_in INT
+)
+BEGIN
+    SELECT
+        ri.room_instance_id,
+        r.`name` AS room_name,
+        r.width,
+        r.height,
+        ri.depth,
+
+        ei.entity_instance_id,
+        ei.player_character_id,
+        pc.`name` AS character_name,
+        pc.health,
+        pc.hue,
+
+        ei.item_id,
+        i.`name` AS item_name,
+        ei.quantity,
+
+		s.`name` AS structure_name,
+
+        ei.npc_id,
+        ei.structure_id,
+        ei.inventory_id,
+        ei.destination_id,
+
+        tgi.position_x,
+        tgi.position_y
+
+    FROM entity_instance AS player_entity
+    JOIN tile_game_instance AS player_tile
+        ON player_tile.tile_instance_id = player_entity.tile_instance_id
+    JOIN room_instance AS ri
+        ON ri.room_instance_id = player_tile.room_instance_id
+    JOIN room AS r
+        ON r.room_id = ri.room_id
+
+    JOIN tile_game_instance AS tgi
+        ON tgi.room_instance_id = ri.room_instance_id
+    LEFT JOIN entity_instance AS ei
+        ON ei.tile_instance_id = tgi.tile_instance_id
+    LEFT JOIN player_character AS pc
+        ON pc.player_character_id = ei.player_character_id
+    LEFT JOIN item AS i
+        ON i.item_id = ei.item_id
+	LEFT JOIN structure AS s
+		ON s.structure_id = ei.structure_id
+
+    WHERE player_entity.player_character_id = player_character_id_in
+
+    ORDER BY
+        tgi.position_y,
+        tgi.position_x,
+        ei.entity_instance_id;
+END //
+DELIMITER ;
+
+/*
+ __  .__   __. ____    ____  _______ .__   __. .___________.  ______   .______     ____    ____ 
+|  | |  \ |  | \   \  /   / |   ____||  \ |  | |           | /  __  \  |   _  \    \   \  /   / 
+|  | |   \|  |  \   \/   /  |  |__   |   \|  | `---|  |----`|  |  |  | |  |_)  |    \   \/   /  
+|  | |  . `  |   \      /   |   __|  |  . `  |     |  |     |  |  |  | |      /      \_    _/   
+|  | |  |\   |    \    /    |  |____ |  |\   |     |  |     |  `--'  | |  |\  \----.   |  |     
+|__| |__| \__|     \__/     |_______||__| \__|     |__|      \______/  | _| `._____|   |__|     
+                                                                                                
+*/
 -- INVENTORY --
 
 -- get inventory info
@@ -1069,12 +1447,18 @@ BEGIN
 END //
 DELIMITER ;
 
+
 -- Move Item in Inventory
 -- inventory_move_item
+-- TODO
+
 
 -- Transfer Item between inventories
 -- inventory_transfer_item
+-- TODO
 
+
+-- 7. Player game play acquiring inventory, e.g., picking up items off a tile and putting them in an inventory (bag?)
 -- Pick up Item
 -- item_pick_up
 DELIMITER //
@@ -1136,7 +1520,7 @@ BEGIN
             SET MESSAGE_TEXT = 'Invalid inventory or item';
     END IF;
 
-    -- loop to fill existing stacks
+    -- loop to fill slots
     fill_stacks: WHILE item_quantity > 0 DO
         SELECT min(slot_no)
         INTO slot_no_var
@@ -1145,7 +1529,7 @@ BEGIN
           AND item_id = item_id_var
           AND quantity < max_stack_size_var;
 		
-        -- full
+        -- no inventory slots left
         IF slot_no_var IS NULL THEN
             LEAVE fill_stacks;
         END IF;
@@ -1171,7 +1555,7 @@ BEGIN
 
     -- Create new stacks
     WHILE item_quantity > 0 DO
-        SELECT COALESCE(max(slot_no), 0) + 1
+        SELECT coalesce(max(slot_no), 0) + 1
         INTO slot_no_var
         FROM slot
         WHERE inventory_id = carried_inventory_id;
@@ -1190,6 +1574,8 @@ BEGIN
     SELECT 'Picked up successfully' AS result;
 END //
 DELIMITER ;
+
+
 
 -- Drop Item
 -- inventory_drop
@@ -1268,7 +1654,17 @@ BEGIN
 END //
 DELIMITER ;
 
+/*
+.___  ___.   ______   ____    ____  _______ .___  ___.  _______ .__   __. .___________.
+|   \/   |  /  __  \  \   \  /   / |   ____||   \/   | |   ____||  \ |  | |           |
+|  \  /  | |  |  |  |  \   \/   /  |  |__   |  \  /  | |  |__   |   \|  | `---|  |----`
+|  |\/|  | |  |  |  |   \      /   |   __|  |  |\/|  | |   __|  |  . `  |     |  |     
+|  |  |  | |  `--'  |    \    /    |  |____ |  |  |  | |  |____ |  |\   |     |  |     
+|__|  |__|  \______/      \__/     |_______||__|  |__| |_______||__| \__|     |__|     
+*/
+
 -- MOVEMENT --
+-- 5. Player game play movement, i.e., moving a player to a “legal” tile. 
 -- Move in direction
 -- gameplay_move_in_direction
 DELIMITER //
@@ -1333,10 +1729,22 @@ BEGIN
             ELSEIF EXISTS (
 				SELECT 1
 				FROM entity_instance AS ei
+				LEFT JOIN structure AS s
+					ON s.structure_id = ei.structure_id
 				WHERE ei.tile_instance_id = target_tile_instance_id
 				  AND (
 					  ei.npc_id IS NOT NULL
-					  OR ei.structure_id IS NOT NULL
+					  OR (
+						  ei.structure_id IS NOT NULL
+						  AND s.name <> 'doorway'
+					  )
+					  OR (
+						  ei.player_character_id IS NOT NULL
+						  AND NOT (
+							  target_x = 4
+							  AND target_y = 3
+						  )
+					  )
 				  )
 			) THEN
 				SET result_message = 'Blocked';
@@ -1356,6 +1764,71 @@ DELIMITER ;
 
 -- Navigate Doorway
 -- gameplay_navigate_doorway
+DELIMITER //
+DROP PROCEDURE IF EXISTS gameplay_navigate_doorway //
+CREATE PROCEDURE gameplay_navigate_doorway (
+    IN player_character_id_in INT
+)
+BEGIN
+    DECLARE current_room_instance_id BIGINT;
+    DECLARE destination_room_instance_id BIGINT;
+    DECLARE current_tile_instance_id BIGINT;
+    DECLARE destination_tile_instance_id BIGINT;
+    DECLARE doorway_structure_id INT;
+    DECLARE destination_room_name VARCHAR(64);
+
+    -- Get the doorway structure ID
+    SELECT structure_id
+    INTO doorway_structure_id
+    FROM structure
+    WHERE `name` = 'doorway';
+
+    -- Get the character's current room and tile
+    SELECT tgi.room_instance_id, tgi.tile_instance_id
+    INTO current_room_instance_id, current_tile_instance_id
+    FROM entity_instance ei
+    JOIN tile_game_instance tgi
+        ON tgi.tile_instance_id = ei.tile_instance_id
+    WHERE ei.player_character_id = player_character_id_in;
+
+    -- Find the destination room
+    SELECT ei.destination_id
+    INTO destination_room_instance_id
+    FROM entity_instance ei
+    WHERE ei.tile_instance_id = current_tile_instance_id
+      AND ei.structure_id = doorway_structure_id;
+
+    -- Find the destination room name
+    SELECT r.name
+    INTO destination_room_name
+    FROM room_instance ri
+    JOIN room r
+        ON r.room_id = ri.room_id
+    WHERE ri.room_instance_id = destination_room_instance_id;
+
+    -- Find the reciprocal doorway tile
+    SELECT tgi.tile_instance_id
+    INTO destination_tile_instance_id
+    FROM entity_instance ei
+    JOIN tile_game_instance tgi
+        ON tgi.tile_instance_id = ei.tile_instance_id
+    WHERE tgi.room_instance_id = destination_room_instance_id
+      AND ei.structure_id = doorway_structure_id
+      AND ei.destination_id = current_room_instance_id;
+
+    -- Tally the inventory score
+    IF destination_room_name = 'lobby' THEN
+        CALL score_tally(player_character_id_in, FALSE);
+    ELSE
+        CALL score_tally(player_character_id_in, TRUE);
+    END IF;
+
+    -- Move the character
+    UPDATE entity_instance
+    SET tile_instance_id = destination_tile_instance_id
+    WHERE player_character_id = player_character_id_in;
+END //
+DELIMITER ;
 
 -- INTERACTION --
 -- Examine Item/Entity
@@ -1376,10 +1849,250 @@ DELIMITER ;
 -- Purchase Shop Item
 -- shop_purchase
 
+/*
+  _______      ___      .___  ___.  _______     _______ .__   __.   _______  __  .__   __.  _______ 
+ /  _____|    /   \     |   \/   | |   ____|   |   ____||  \ |  |  /  _____||  | |  \ |  | |   ____|
+|  |  __     /  ^  \    |  \  /  | |  |__      |  |__   |   \|  | |  |  __  |  | |   \|  | |  |__   
+|  | |_ |   /  /_\  \   |  |\/|  | |   __|     |   __|  |  . `  | |  | |_ | |  | |  . `  | |   __|  
+|  |__| |  /  _____  \  |  |  |  | |  |____    |  |____ |  |\   | |  |__| | |  | |  |\   | |  |____ 
+ \______| /__/     \__\ |__|  |__| |_______|   |_______||__| \__|  \______| |__| |__| \__| |_______|
+                                                                                                    
+*/
+
 -- GAME ENGINE --
 -- Generate Cave
 -- game_generate_cave
 
+/*
+DELIMITER //
+DROP PROCEDURE IF EXISTS game_generate_cave //
+CREATE PROCEDURE game_generate_cave (
+    IN game_id_in INT
+)
+BEGIN
+    DECLARE target_room_count INT DEFAULT 10;
+    DECLARE min_rooms_per_pass INT DEFAULT 2;
+    DECLARE max_rooms_per_pass INT DEFAULT 3;
+
+    DECLARE rooms_generated INT DEFAULT 0;
+    DECLARE current_depth INT DEFAULT 0;
+    DECLARE rooms_this_pass INT;
+    DECLARE remaining_rooms INT;
+
+    DECLARE new_room_id BIGINT;
+    DECLARE parent_room_id BIGINT;
+    DECLARE room_name_out VARCHAR(64);
+
+    DECLARE eligible_room_count INT;
+    DECLARE available_parent_count INT;
+
+    -- Store the rooms generated in the previous pass.
+    -- These are the only rooms that new rooms may initially connect to.
+    DROP TEMPORARY TABLE IF EXISTS cave_previous_pass;
+
+    CREATE TEMPORARY TABLE cave_previous_pass (
+        room_instance_id BIGINT PRIMARY KEY
+    );
+
+    -- Store the rooms generated in the current pass.
+    DROP TEMPORARY TABLE IF EXISTS cave_current_pass;
+
+    CREATE TEMPORARY TABLE cave_current_pass (
+        room_instance_id BIGINT PRIMARY KEY
+    );
+
+    -- ------------------------------------------------------------
+    -- Depth 0: Generate the entrance.
+    -- ------------------------------------------------------------
+
+    SELECT count(*)
+    INTO eligible_room_count
+    FROM room
+    WHERE minimum_depth <= 0
+      AND EXISTS (
+          SELECT 1
+          FROM room_doorway
+          WHERE room_doorway.room_id = room.room_id
+      );
+
+    IF eligible_room_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'No room template is available for the cave entrance';
+    END IF;
+
+    SELECT `name`
+    INTO room_name_out
+    FROM room
+    WHERE minimum_depth <= 0
+      AND EXISTS (
+          SELECT 1
+          FROM room_doorway
+          WHERE room_doorway.room_id = room.room_id
+      )
+    ORDER BY rand()
+    LIMIT 1;
+
+    CALL game_generate_room(
+        room_name_out,
+        game_id_in,
+        0,
+        new_room_id
+    );
+
+    INSERT INTO cave_previous_pass (
+        room_instance_id
+    )
+    VALUES (
+        new_room_id
+    );
+
+    SET rooms_generated = 1;
+
+
+END //
+
+DELIMITER ;
+*/
+-- TODO - lets make a single room for testing.
+DELIMITER //
+DROP PROCEDURE IF EXISTS game_generate_cave //
+CREATE PROCEDURE game_generate_cave (
+    IN game_id_in INT,
+    IN lobby_room_id_in BIGINT
+)
+BEGIN
+    DECLARE cave_room_id BIGINT;
+    DECLARE cave_room_name VARCHAR(64);
+
+    -- Select a room that can be used as the cave entrance.
+    -- It must be available at depth 0 and have at least one doorway.
+    SELECT `name`
+    INTO cave_room_name
+    FROM room
+    WHERE minimum_depth <= 0
+    -- exclude lobby
+    AND `name` <> 'lobby'
+    AND EXISTS (
+        SELECT 1
+        FROM room_doorway
+        WHERE room_doorway.room_id = room.room_id
+    )
+    ORDER BY rand()
+    LIMIT 1;
+
+    -- Generate the first cave room.
+    CALL game_generate_room(
+        cave_room_name,
+        game_id_in,
+        0,
+        cave_room_id
+    );
+
+    -- Connect the cave entrance to the lobby.
+    CALL game_connect_rooms(
+        lobby_room_id_in,
+        cave_room_id
+    );
+END //
+DELIMITER ;
+
+-- generate a doorway connection between rooms.
+-- game_connect_rooms
+DELIMITER //
+DROP PROCEDURE IF EXISTS game_connect_rooms //
+CREATE PROCEDURE game_connect_rooms (
+    IN room_a_id INT,
+    IN room_b_id INT
+)
+BEGIN
+    DECLARE doorway_a_x INT;
+    DECLARE doorway_a_y INT;
+    DECLARE doorway_b_x INT;
+    DECLARE doorway_b_y INT;
+    DECLARE doorway_structure_id INT;
+
+    -- Get the doorway structure
+    SELECT structure_id INTO doorway_structure_id
+    FROM structure
+    WHERE `name` = 'doorway';
+
+    -- Select an unused doorway position in room A
+    SELECT rd.position_x, rd.position_y
+    INTO doorway_a_x, doorway_a_y
+    FROM room_doorway rd
+    WHERE rd.room_id = (
+        SELECT room_id
+        FROM room_instance
+        WHERE room_instance_id = room_a_id
+    )
+    AND NOT EXISTS (
+        SELECT 1
+        FROM entity_instance ei
+        JOIN tile_game_instance tgi
+            ON tgi.tile_instance_id = ei.tile_instance_id
+        WHERE tgi.room_instance_id = room_a_id
+        AND tgi.position_x = rd.position_x
+        AND tgi.position_y = rd.position_y
+        AND ei.structure_id = doorway_structure_id
+    )
+    ORDER BY rand()
+    LIMIT 1;
+
+    -- Select an unused doorway position in room B
+    SELECT rd.position_x, rd.position_y
+    INTO doorway_b_x, doorway_b_y
+    FROM room_doorway rd
+    WHERE rd.room_id = (
+        SELECT room_id
+        FROM room_instance
+        WHERE room_instance_id = room_b_id
+    )
+    AND NOT EXISTS (
+        SELECT 1
+        FROM entity_instance ei
+        JOIN tile_game_instance tgi
+            ON tgi.tile_instance_id = ei.tile_instance_id
+        WHERE tgi.room_instance_id = room_b_id
+        AND tgi.position_x = rd.position_x
+        AND tgi.position_y = rd.position_y
+        AND ei.structure_id = doorway_structure_id
+    )
+    ORDER BY rand()
+    LIMIT 1;
+
+    -- Create doorway from room A to room B
+    INSERT INTO entity_instance (
+        tile_instance_id,
+        structure_id,
+        destination_id
+    )
+    SELECT
+        tgi.tile_instance_id,
+        doorway_structure_id,
+        room_b_id
+    FROM tile_game_instance tgi
+    WHERE tgi.room_instance_id = room_a_id
+    AND tgi.position_x = doorway_a_x
+    AND tgi.position_y = doorway_a_y;
+
+    -- Create doorway from room B to room A
+    INSERT INTO entity_instance (
+        tile_instance_id,
+        structure_id,
+        destination_id
+    )
+    SELECT
+        tgi.tile_instance_id,
+        doorway_structure_id,
+        room_a_id
+    FROM tile_game_instance tgi
+    WHERE tgi.room_instance_id = room_b_id
+    AND tgi.position_x = doorway_b_x
+    AND tgi.position_y = doorway_b_y;
+END //
+DELIMITER ;
+
+-- 3. Laying out tiles on a game board
 -- Generate Room
 -- game_generate_room
 DELIMITER //
@@ -1432,42 +2145,76 @@ BEGIN
 END //
 DELIMITER ; 
 
+
 -- populate room layout table from ascii input
 -- game_populate_room_layout
 DELIMITER //
 DROP PROCEDURE IF EXISTS game_populate_room_layout //
 CREATE PROCEDURE game_populate_room_layout (
     IN room_name_in VARCHAR(64),
-    IN layout_in 	TEXT
+    IN layout_in TEXT
 )
 BEGIN
-	DECLARE char_index 		INT DEFAULT 1;
-	DECLARE position_x 		INT DEFAULT 0;
-    DECLARE position_y 		INT DEFAULT 0;
-    DECLARE layout_length 	INT;
-    DECLARE current_char 	CHAR(1);
+    DECLARE char_index INT DEFAULT 1;
+    DECLARE position_x INT DEFAULT 0;
+    DECLARE position_y INT DEFAULT 0;
+    DECLARE layout_length INT;
+    DECLARE current_char CHAR(1);
     DECLARE current_room_id INT;
-    
+
     -- get the room template
     SELECT room_id INTO current_room_id
     FROM room
     WHERE `name` = room_name_in;
-    
+
     -- get the length of the layout string
-    SET layout_length = char_length(layout_in);
-    
+    SET layout_length = CHAR_LENGTH(layout_in);
+
     -- read each layout character
     WHILE char_index <= layout_length DO
-		SET current_char = substring(layout_in, char_index, 1);
-        
-			-- Detect new lines
-			IF ASCII(current_char) IN (10, 13) THEN
-				SET position_x = 0;
-				SET position_y = position_y + 1;
-			ELSEIF ASCII(current_char) IN (9, 32) THEN
-				-- Ignore tabs and indentation spaces
-				SET position_x = position_x;
-			ELSE
+        SET current_char = SUBSTRING(layout_in, char_index, 1);
+
+        -- Detect new lines
+        IF ASCII(current_char) IN (10, 13) THEN
+            SET position_x = 0;
+            SET position_y = position_y + 1;
+
+        ELSEIF ASCII(current_char) IN (9, 32) THEN
+            -- Ignore tabs and indentation spaces
+            -- why don't you detect indentation properly :(
+            SET position_x = position_x;
+
+        ELSEIF current_char = 'D' THEN
+            -- Place a floor tile beneath the doorway
+            INSERT INTO tile_map_instance (
+                tile_id,
+                room_id,
+                position_x,
+                position_y
+            )
+            SELECT
+                tile_id,
+                current_room_id,
+                position_x,
+                position_y
+            FROM tile
+            WHERE symbol = '.';
+
+            -- Record the doorway position
+            INSERT INTO room_doorway (
+                room_id,
+                position_x,
+                position_y
+            )
+            VALUES (
+                current_room_id,
+                position_x,
+                position_y
+            );
+
+            SET position_x = position_x + 1;
+
+        ELSE
             -- Insert the tile matching the symbol
             INSERT INTO tile_map_instance (
                 tile_id,
@@ -1483,17 +2230,15 @@ BEGIN
             FROM tile
             WHERE symbol = current_char;
 
-			-- increment room position
             SET position_x = position_x + 1;
         END IF;
-        
-		-- increment string index
+
         SET char_index = char_index + 1;
     END WHILE;
-    
 END //
-DELIMITER ; 
+DELIMITER ;
 
+-- 4. Placing an item on a tile. 
 -- populate room with entities based on spawn tables
 -- game_populate_room_entities
 DELIMITER //
@@ -1600,17 +2345,57 @@ DELIMITER ;
 
 -- Process game tick
 -- game_process_tick
+
 DELIMITER //
 DROP PROCEDURE IF EXISTS game_process_tick //
 CREATE PROCEDURE game_process_tick ()
 BEGIN
-	UPDATE party
-    SET tick_count = tick_count + 1;
+    DECLARE finished 		INT DEFAULT FALSE;
+    DECLARE game_id_current INT;
+    DECLARE lobby_room_id 	BIGINT;
+	-- more cursors yay
+    DECLARE starting_games CURSOR FOR
+        SELECT g.game_id, p.room_instance_id
+        FROM game g
+        JOIN party p
+            ON p.game_id = g.game_id
+        WHERE g.start_time <= CURRENT_TIMESTAMP
+          AND g.cave_generated = FALSE;
 
+    DECLARE CONTINUE HANDLER FOR NOT FOUND
+        SET finished = TRUE;
+
+    -- Increment party ticks
+    UPDATE party
+    SET tick_count = tick_count + 1; 
+
+    -- Generate caves for games whose countdown has finished
+    OPEN starting_games;
+
+    game_loop: LOOP
+        FETCH starting_games
+        INTO game_id_current, lobby_room_id;
+
+        IF finished THEN
+            LEAVE game_loop;
+        END IF;
+
+        CALL game_generate_cave(
+            game_id_current,
+            lobby_room_id
+        );
+        
+        UPDATE game
+        SET cave_generated = TRUE
+        WHERE game_id = game_id_current;
+    END LOOP;
+    
+    CLOSE starting_games;
     -- TODO: Process NPCs
     -- TODO: Process timed effects
 END //
-DELIMITER ; 
+
+DELIMITER ;
 
 -- event for handling ticks
 -- game_tick_event
@@ -1629,17 +2414,134 @@ DELIMITER ;
 -- Process NPC behavior
 -- game_process_npc
 
+
+
 -- Process effects
 -- game_process_effects
 
 
 -- End game
 -- game_end
+DELIMITER //
+DROP PROCEDURE IF EXISTS game_end //
+CREATE PROCEDURE game_end (
+    IN game_id_in INT
+)
+BEGIN
+    -- Delete cave rooms
+    DELETE FROM room_instance
+    WHERE game_id = game_id_in
+      AND room_instance_id NOT IN (
+          SELECT room_instance_id
+          FROM party
+          WHERE game_id = game_id_in
+      );
 
+    -- Mark the game as ended
+    UPDATE game
+    SET ended = TRUE
+    WHERE game_id = game_id_in;
+END //
+DELIMITER ;
+
+
+
+/*
+     _______.  ______   ______   .______       _______ 
+    /       | /      | /  __  \  |   _  \     |   ____|
+   |   (----`|  ,----'|  |  |  | |  |_)  |    |  |__   
+    \   \    |  |     |  |  |  | |      /     |   __|  
+.----)   |   |  `----.|  `--'  | |  |\  \----.|  |____ 
+|_______/     \______| \______/  | _| `._____||_______|
+                                                       
+                                                  
+*/
 -- SCORE --
+-- 6. Game play scoring. How do players gain and lose points?
 -- Tally Score
 -- score_tally
+DELIMITER //
+DROP PROCEDURE IF EXISTS score_tally //
+CREATE PROCEDURE score_tally (
+    IN player_character_id_in INT,
+    IN entering_caves_in 	  BOOLEAN
+)
+BEGIN
+    DECLARE party_id_current INT;
+    DECLARE inventory_score  INT DEFAULT 0;
 
+    SELECT party_id
+    INTO party_id_current
+    FROM player_character
+    WHERE player_character_id = player_character_id_in;
+
+    SELECT coalesce(sum(i.point_value * s.quantity), 0)
+    INTO inventory_score
+    FROM inventory inv
+    JOIN slot s
+        ON s.inventory_id = inv.inventory_id
+    JOIN item i
+        ON i.item_id = s.item_id
+    WHERE inv.player_character_id = player_character_id_in
+		AND i.point_value IS NOT NULL;
+
+    INSERT INTO party_scoreboard (
+        party_id,
+        player_character_id,
+        player_name,
+        score
+    )
+    SELECT
+        pc.party_id,
+        pc.player_character_id,
+        pc.name,
+        0
+    FROM player_character pc
+    WHERE pc.player_character_id = player_character_id_in
+    ON DUPLICATE KEY UPDATE
+        player_name = VALUES(player_name);
+
+    UPDATE party_scoreboard
+    SET score = score + CASE
+        WHEN entering_caves_in THEN -inventory_score
+        ELSE inventory_score
+    END
+    WHERE party_id = party_id_current
+		AND player_character_id = player_character_id_in;
+END //
+DELIMITER ;
+
+-- get the party score
+-- score_get
+DELIMITER //
+DROP PROCEDURE IF EXISTS score_get //
+CREATE PROCEDURE score_get (
+    IN player_character_id_in INT
+)
+BEGIN
+    SELECT
+        player_name,
+        score
+    FROM party_scoreboard
+    WHERE party_id = (
+        SELECT party_id
+        FROM player_character
+        WHERE player_character_id = player_character_id_in
+    )
+    ORDER BY score DESC;
+END //
+DELIMITER ;
+
+
+/*
+ _______   _______ .______    __    __    _______ 
+|       \ |   ____||   _  \  |  |  |  |  /  _____|
+|  .--.  ||  |__   |  |_)  | |  |  |  | |  |  __  
+|  |  |  ||   __|  |   _  <  |  |  |  | |  | |_ | 
+|  '--'  ||  |____ |  |_)  | |  `--'  | |  |__| | 
+|_______/ |_______||______/   \______/   \______| 
+                                                  
+*/
 -- DEBUG --
 -- View Room
 -- debug_view_room
@@ -1700,6 +2602,16 @@ BEGIN
         tgi.position_x;
 END //
 DELIMITER ;
+
+/*
+     ___       _______  .___  ___.  __  .__   __. 
+    /   \     |       \ |   \/   | |  | |  \ |  | 
+   /  ^  \    |  .--.  ||  \  /  | |  | |   \|  | 
+  /  /_\  \   |  |  |  ||  |\/|  | |  | |  . `  | 
+ /  _____  \  |  '--'  ||  |  |  | |  | |  |\   | 
+/__/     \__\ |_______/ |__|  |__| |__| |__| \__| 
+                                                  
+*/
 
 -- ADMINISTRATION --
 -- View Games
