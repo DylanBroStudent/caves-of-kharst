@@ -2350,7 +2350,8 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS game_process_tick //
 CREATE PROCEDURE game_process_tick ()
 BEGIN
-    DECLARE finished 		INT DEFAULT FALSE;
+    DECLARE finished 		BOOLEAN DEFAULT FALSE;
+    DECLARE finished_ending BOOLEAN DEFAULT FALSE;
     DECLARE game_id_current INT;
     DECLARE lobby_room_id 	BIGINT;
 	-- more cursors yay
@@ -2361,6 +2362,12 @@ BEGIN
             ON p.game_id = g.game_id
         WHERE g.start_time <= CURRENT_TIMESTAMP
           AND g.cave_generated = FALSE;
+	
+    DECLARE ending_games CURSOR FOR
+		SELECT game_id
+        FROM game
+        WHERE start_time <= (current_timestamp() - INTERVAL 30 MINUTE)
+			AND ended = FALSE;
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND
         SET finished = TRUE;
