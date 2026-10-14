@@ -12,6 +12,7 @@ CALL gameplay_navigate_doorway(@tayer_character);
 -- get tayer's new room data
 CALL room_get(@tayer_character);
 
+-- get a reference to the item
 SELECT ei.entity_instance_id
 INTO @item_id
 
@@ -34,15 +35,46 @@ AND tgi.position_y = 5
 ORDER BY entity_instance_id ASC
 LIMIT 1;
 
+-- 8. Move an Item (NPC effect)
+-- wait for npc to move
+DO sleep(4);
+-- look at room to see npc movemnt compared to the previous room_get
+CALL room_get(@tayer_character);
 
-
+-- move to item
 CALL gameplay_move_in_direction(@tayer_character, 'w');
+-- pick up item
 CALL item_pick_up(@tayer_character, @item_id);
+-- move back to door
 CALL gameplay_move_in_direction(@tayer_character, 's');
+-- navigate doorway back to lobby
 CALL gameplay_navigate_doorway(@tayer_character);
 
+-- 6. Game play scoring. How do players gain and lose points
+-- returning to the lobby has awarded points, check them now
 CALL score_get(@tayer_character);
+-- return to th cave
 CALL gameplay_navigate_doorway(@tayer_character);
+-- entering to the cave has taken points, check them now
 CALL score_get(@tayer_character);
+-- points are back to zero
+-- back to the lobby
 CALL gameplay_navigate_doorway(@tayer_character);
+-- the gem we picked up was worth 50 points
 CALL score_get(@tayer_character); 
+
+-- get the party_id
+SELECT party_id
+INTO @tayer_party_id
+FROM player_character
+WHERE player_character_id = @tayer_character;
+
+-- get the game id from the party id
+SELECT game_id
+INTO @game_id
+FROM party
+WHERE party_id = @tayer_party_id;
+
+-- 9. Kill running games
+-- kill the game
+CALL game_end(@game_id)

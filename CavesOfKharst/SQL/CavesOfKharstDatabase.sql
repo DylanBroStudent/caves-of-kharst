@@ -1,4 +1,30 @@
 
+-- START OF DDL --
+-- To initialise the database and populate with game data. you may run the entire script now.
+-- Once initialised, the database can be tested using the code below the DDL.
+-- IMPORTANT NOTE: MySQL Workbench cannot handle any more than one section of this codebase run at a time
+-- please only run one section at a time (DDL, TESTING PHASE 1 - PRE GAME, or TESTING PHASE 2 - IN GAME)
+ 
+ 
+-- to find specific requirements use control + F with the following text:
+-- both the DDL procedure definitions and their tests include these requirements.
+-- 1. Player login, including lock out
+-- 2. Player registration
+-- 3. Laying out tiles on a game board
+-- 4. Placing an item on a tile
+-- 5. Player game play movement, i.e., moving a player to a “legal” tile
+-- 6. Game play scoring. How do players gain and lose points
+-- 7. Player game play acquiring inventory, e.g., picking up items off a tile and putting them in an inventory (bag?)
+-- 8. Move an Item (NPC effect)
+-- 9. Kill running games
+-- 10. Add new players
+-- 11. Update data of a player
+-- 12. Delete a player
+
+
+-- uncomment the line below and its pair beneath DDL to comment out the DDL section
+-- /*
+
 -- reset database
 DROP DATABASE IF EXISTS temp;
 CREATE DATABASE temp;
@@ -131,7 +157,7 @@ BEGIN
 		`name` 		  varchar(64)  NOT NULL UNIQUE,
 		`description` varchar(255) NOT NULL,
 		`type` 		  varchar(64)  NOT NULL,
-		effect_id     int(10) 	   NOT NULL,
+		effect_id     int(10),
 		CONSTRAINT fk_npc_effect FOREIGN KEY (effect_id) REFERENCES effect (effect_id)
 	);
 
@@ -299,7 +325,13 @@ BEGIN
     ("rock",	 "obstacle", "A large rock stands in your way."),
     -- Cave Structures
     ("doorway",	 "doorway",  "A passage connecting this room to another.");
-    -- Spawn tables
+    
+    
+    -- NPCs
+    INSERT INTO npc (`name`, `description`, `type`, effect_id) VALUES
+    ("rat", "A small rodent you'd rather not step on", "passive", NULL);
+    
+    	-- Spawn tables
     INSERT INTO spawn_table (`name`) VALUES
     ("empty"),
     ("shop"),
@@ -308,7 +340,8 @@ BEGIN
     ("rock"),
     ("rock_50"),
     ("coins_few"),
-    ("loot1");
+    ("loot1"),
+    ("rat");
     
     -- Spawn tables entries
     
@@ -370,9 +403,14 @@ BEGIN
     ((SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),
         NULL, NULL,
         (SELECT item_id FROM item WHERE `name` = "Brilliant Healing Gem"),
+        1, 1),
+        
+	-- rat
+	((SELECT spawn_table_id FROM spawn_table WHERE `name` = "rat"),
+        NULL, 
+        (SELECT npc_id FROM npc WHERE `name` = "rat"),
+        NULL,
         1, 1);
-        
-        
         
     -- Tiles
     INSERT INTO tile (`name`, spawn_table_id, symbol) VALUES
@@ -390,8 +428,9 @@ BEGIN
     ("rock_50",  (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rock_50"),  "r"),
     -- items
     ("coins_few",(SELECT spawn_table_id FROM spawn_table WHERE `name` = "coins_few"),"c"),
-    ("loot1",	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),	 "1");
-
+    ("loot1",	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "loot1"),	 "1"),
+	-- npcs
+    ("rat",	 	 (SELECT spawn_table_id FROM spawn_table WHERE `name` = "rat"),	 	 "!");
 
     -- ROOMS
     INSERT INTO room (`name`, height, width, minimum_depth) VALUES
@@ -413,7 +452,7 @@ Rr.r...Rr"
 CALL game_populate_room_layout(
 "crossroads",
 "RRrr..rrr
-r1rr....1
+r1rr.!..1
 rrr....r.
 .........
 .....r...
@@ -735,6 +774,38 @@ DELIMITER ;
 */
 
 -- PARTY --
+
+-- get party data
+-- party_get
+DELIMITER //
+DROP PROCEDURE IF EXISTS party_get //
+CREATE PROCEDURE party_get (
+    IN player_character_id_in INT
+)
+BEGIN
+    SELECT
+        p.party_id,
+        p.game_id,
+        p.room_instance_id,
+        p.tick_count,
+        pc.player_character_id,
+        pc.`name` AS player_name,
+        pc.health,
+        pc.hue,
+        pc.ready,
+        pc.user_account_id
+    FROM player_character pc
+    JOIN party p
+        ON p.party_id = pc.party_id
+    WHERE p.party_id = (
+        SELECT party_id
+        FROM player_character
+        WHERE player_character_id = player_character_id_in
+    )
+    ORDER BY pc.player_character_id;
+END //
+DELIMITER ;
+
 -- Create party
 -- party_create
 DELIMITER //
@@ -1229,14 +1300,14 @@ BEGIN
             SET MESSAGE_TEXT = 'Not all party members are ready';
     END IF;
 
-    -- Create the game with a start time 10 seconds ahead.
+    -- Create the game with a start time 10 seconds ahead. now 3 seconds for testing.
     INSERT INTO game (
         seed,
         start_time
     )
     VALUES (
         floor(rand() * 2147483647),
-        CURRENT_TIMESTAMP + INTERVAL 10 SECOND
+        CURRENT_TIMESTAMP + INTERVAL 3 SECOND
     );
 
     SET game_id_new = last_insert_id();
@@ -2415,7 +2486,12 @@ BEGIN
         CLOSE ending_games;
     END;
     
-    -- TODO: Process NPCs
+    -- Process NPCs
+    -- every third tick
+    IF mod((SELECT coalesce(max(tick_count), 0) FROM party), 3) = 0 THEN
+		CALL npc_process_tick();
+	END IF;
+    
     -- TODO: Process timed effects
 END //
 DELIMITER ;
@@ -2438,7 +2514,84 @@ DELIMITER ;
 -- Process NPC behavior
 -- game_process_npc
 
--- TODO
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS npc_process_tick //
+CREATE PROCEDURE npc_process_tick ()
+BEGIN
+    DECLARE finished INT DEFAULT FALSE;
+    DECLARE npc_entity_id BIGINT;
+    DECLARE current_tile_id BIGINT;
+    DECLARE current_room_id BIGINT;
+    DECLARE current_x INT;
+    DECLARE current_y INT;
+    DECLARE target_x INT;
+    DECLARE target_y INT;
+    DECLARE target_tile_id BIGINT;
+    DECLARE direction INT;
+
+    DECLARE npc_cursor CURSOR FOR
+        SELECT
+            ei.entity_instance_id,
+            tgi.tile_instance_id,
+            tgi.room_instance_id,
+            tgi.position_x,
+            tgi.position_y
+        FROM entity_instance ei
+        JOIN npc n
+            ON n.npc_id = ei.npc_id
+        JOIN tile_game_instance tgi
+            ON tgi.tile_instance_id = ei.tile_instance_id
+        WHERE n.type = 'passive';
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND
+        SET finished = TRUE;
+
+	-- cursor to loop through potential moves
+    OPEN npc_cursor;
+    npc_loop: LOOP
+        FETCH npc_cursor
+        INTO npc_entity_id, current_tile_id, current_room_id, current_x, current_y;
+
+        IF finished THEN
+            LEAVE npc_loop;
+        END IF;
+		-- pick a random direction
+        SET direction = floor(rand() * 4);
+
+        SET target_x = current_x;
+        SET target_y = current_y;
+
+        CASE direction
+            WHEN 0 THEN SET target_y = current_y - 1;
+            WHEN 1 THEN SET target_x = current_x - 1;
+            WHEN 2 THEN SET target_y = current_y + 1;
+            WHEN 3 THEN SET target_x = current_x + 1;
+        END CASE;
+
+        SELECT tgi.tile_instance_id
+        INTO target_tile_id
+        FROM tile_game_instance tgi
+        WHERE tgi.room_instance_id = current_room_id
+          AND tgi.position_x = target_x
+          AND tgi.position_y = target_y
+        LIMIT 1;
+
+        IF target_tile_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1
+               FROM entity_instance ei
+               WHERE ei.tile_instance_id = target_tile_id
+           )
+        THEN
+            UPDATE entity_instance
+            SET tile_instance_id = target_tile_id
+            WHERE entity_instance_id = npc_entity_id;
+        END IF;
+    END LOOP;
+    CLOSE npc_cursor;
+END //
+DELIMITER ;
 
 -- Process effects
 -- game_process_effects
@@ -2673,6 +2826,481 @@ CALL create_database();
 -- populate the database()
 CALL populate_game_data();
 
+-- uncomment the line below and its pair above to comment out the DDL section
+-- */
+
+-- END OF DDL --
+
+-- START OF TESTING PHASE 1 - PRE GAME --
+-- please comment all previous code out and uncomment the following code up to PHASE 2 - IN GAME --
+-- Or select the entirety of PHASE 1 - PRE GAME and run once uncommented 						 --
+
+-- Once the Database has been initialised, run PHASE 1 of tests to test all database processes up to and including starting a game
+
+-- comment the line below and its pair beneath PHASE 1 to enable PHASE 1
+/*
+-- TESTING --
+-- ACCOUNT --
+
+-- 2. Player registration
+-- account_register(email, password, admin)
+-- regular
+CALL account_register("TestPlayer@kharst.game","Admin123", FALSE);
+-- admin
+CALL account_register("TestAdmin@kharst.game","Admin123", TRUE);
+-- check
+SELECT * FROM user_account;
+
+-- 1. Player login, including lock out
+-- account_login(email, password)
+CALL account_login("TestPlayer@kharst.game", "Admin123");
+-- wrong password
+CALL account_login("TestPlayer@kharst.game", "wrongpassword");
+-- no account
+CALL account_login("wrongemail", "wrongpassword");
+
+-- account_lockout(email)
+CALL account_lockout("TestPlayer@kharst.game");
+-- check account
+SELECT * FROM user_account
+WHERE email = "TestPlayer@kharst.game";
+-- attempt login
+CALL account_login("TestPlayer@kharst.game", "Admin123");
+-- reset lockout
+UPDATE user_account
+SET lockout_time = NULL
+WHERE email = "TestPlayer@kharst.game";
+
+
+-- 11. Update data of a player
+-- account_update_email(old_email, new_email)
+CALL account_update_email("TestPlayer@kharst.game", "UpdatedPlayer@kharst.game");
+-- check account
+SELECT * FROM user_account
+WHERE email = "UpdatedPlayer@kharst.game";
+
+-- account update password(email, new password)
+CALL account_update_password("UpdatedPlayer@kharst.game", "UpdatedPassword");
+-- check account
+SELECT * FROM user_account
+WHERE email = "UpdatedPlayer@kharst.game";
+-- attempt login with old credentials
+CALL account_login("UpdatedPlayer@kharst.game", "Admin123");
+-- attempt login with new credentials
+CALL account_login("UpdatedPlayer@kharst.game", "UpdatedPassword");
+
+-- 12. Delete a player
+-- account_delete(email)
+CALL account_delete("UpdatedPlayer@kharst.game");
+-- check account
+SELECT * FROM user_account
+WHERE email = "UpdatedPlayer@kharst.game";
+-- attempt login
+CALL account_login("UpdatedPlayer@kharst.game", "UpdatedPassword");
 
 
 
+-- CHARACTER --
+SELECT user_account_id INTO @tadmin_account FROM user_account
+WHERE email = "TestAdmin@kharst.game";
+
+-- character_create(name, account ID, health, hue)
+CALL character_create("Tadmin", @tadmin_account);
+
+-- check character
+-- SELECT * FROM player_character WHERE `name` = "Tadmin";
+
+-- delete character
+SELECT player_character_id INTO @character_id FROM player_character WHERE `name` = "Tadmin";
+CALL character_delete(@character_id);
+
+-- Confirm the character is gone
+-- SELECT * FROM player_character WHERE `name` = "Tadmin";
+
+-- create again to test
+CALL character_create("Tadmin", @tadmin_account);
+
+-- get character id
+SELECT player_character_id INTO @tadmin_character FROM player_character WHERE `name` = "Tadmin";
+
+-- CHARACTER PLAY
+-- character_play(player_character_id_in)
+
+-- 3. Laying out tiles on a game board
+-- 4. Placing an item on a tile
+CALL character_play(@tadmin_character);
+-- check parties
+-- SELECT * FROM party;
+-- View that lobby's tiles and entities
+-- CALL debug_view_room(1);
+
+-- Update character colour
+-- SELECT player_character_id INTO @character_id FROM player_character WHERE `name` = "Tadmin";
+
+-- Check original colour
+-- SELECT player_character_id, `name`, hue 
+-- FROM player_character 
+-- WHERE player_character_id = @character_id;
+
+-- Update character colour
+-- CALL character_update_colour(@character_id, 180);
+
+-- Check updated colour
+-- SELECT player_character_id, `name`, hue 
+-- FROM player_character 
+-- WHERE player_character_id = @character_id;
+
+
+
+-- PARTY --
+-- New account
+CALL account_register("TestPlayer@kharst.game", "Admin123", FALSE);
+SELECT * FROM user_account;
+
+-- New character
+SELECT user_account_id INTO @tayer_account FROM user_account
+WHERE email = "TestPlayer@kharst.game";
+CALL character_create("Tayer", @tayer_account);
+
+-- Get Tayer's character ID
+SELECT player_character_id
+INTO @tayer_character
+FROM player_character
+WHERE `name` = "Tayer";
+
+-- Play game (creates Tayer's original party and lobby)
+CALL character_play(@tayer_character);
+
+-- Get Tayer's original party
+-- SELECT party_id
+-- INTO @old_party_id
+-- FROM player_character
+-- WHERE player_character_id = @tayer_character;
+
+-- Save the original lobby and game IDs
+-- SELECT room_instance_id, game_id
+-- INTO @old_room_id, @old_game_id
+-- FROM party
+-- WHERE party_id = @old_party_id;
+
+-- Check parties and Tayer's room
+-- SELECT * FROM party;
+-- CALL debug_view_room(@old_room_id);
+
+-- Invite Tayer to Tadmin's party
+SELECT party_id 
+INTO @tadmin_party_id
+FROM player_character
+WHERE user_account_id = @tadmin_character;
+
+CALL party_invite(
+    @tadmin_party_id,
+    @tadmin_character,
+    @tayer_character
+);
+
+-- Check the invitation exists
+-- SELECT * FROM party_invite;
+
+-- Accept the invitation and join Tadmin's party
+CALL party_add_player(
+    @tadmin_party_id,
+    @tayer_character
+);
+
+-- Check both characters' parties
+-- SELECT player_character_id, `name`, party_id
+-- FROM player_character
+-- WHERE player_character_id IN (@character_1_id, @character_2_id);
+-- Check the invitation was removed
+-- SELECT * FROM party_invite;
+-- Check the old party was deleted
+-- SELECT * FROM party WHERE party_id = @old_party_id;
+-- Check the old lobby was deleted
+-- SELECT * FROM room_instance WHERE room_instance_id = @old_room_id;
+-- Check the old game was deleted (if it had one)
+-- SELECT * FROM game WHERE game_id = @old_game_id;
+
+-- communication
+CALL party_send_message(
+    @tadmin_character,
+    'Greetings Tayer!'
+);
+-- party_get_messages(character id)
+CALL party_get_messages(@tayer_character);
+
+-- Get Tayer's character ID, party, and room
+SELECT
+    pc.player_character_id,
+    pc.party_id,
+    p.room_instance_id
+INTO
+    @character_1_id,
+    @party_id,
+    @tayer_room_id
+FROM player_character AS pc
+JOIN party AS p
+    ON p.party_id = pc.party_id
+WHERE pc.`name` = 'Tayer';
+
+-- CALL debug_view_room(@tayer_room_id);
+
+-- party_remove_player( player_character_id, Destination party id)
+CALL party_remove_player(@tayer_character, Null);
+
+SELECT player_character_id, name, party_id, ready
+FROM player_character
+WHERE `name` = 'Tayer';
+
+-- Get Tayer's new data
+SELECT
+    pc.player_character_id,
+    pc.party_id,
+    p.room_instance_id
+INTO
+    @tayer_id,
+    @party_id,
+    @tayer_room_id
+FROM player_character AS pc
+JOIN party AS p
+    ON p.party_id = pc.party_id
+WHERE pc.`name` = 'Tayer';
+
+-- view tayer's new room
+-- CALL debug_view_room(@tayer_room_id);
+
+-- check parties
+-- SELECT player_character_id, `name`, party_id FROM player_character;
+
+-- check new party messages
+CALL party_get_messages(@tayer_id);
+
+
+-- 5. Player game play movement, i.e., moving a player to a “legal” tile
+-- movement
+-- invalid input
+CALL gameplay_move_in_direction(@tayer_id, 'q');
+-- move right
+-- CALL debug_view_room(@tayer_room_id);
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+-- debug_view_room(@tayer_room_id);
+
+CALL gameplay_move_in_direction(@tayer_id, 's');
+CALL gameplay_move_in_direction(@tayer_id, 's');
+CALL gameplay_move_in_direction(@tayer_id, 's');
+-- blocked by wall
+CALL gameplay_move_in_direction(@tayer_id, 's');
+-- CALL debug_view_room(@tayer_room_id);
+
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+-- blocked by rock
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+CALL debug_view_room(@tayer_room_id);
+
+-- INVENTORY
+-- move to coins
+CALL gameplay_move_in_direction(@tayer_id, 'w');
+CALL gameplay_move_in_direction(@tayer_id, 'w');
+CALL gameplay_move_in_direction(@tayer_id, 'w');
+CALL gameplay_move_in_direction(@tayer_id, 'w');
+CALL gameplay_move_in_direction(@tayer_id, 'w');
+CALL gameplay_move_in_direction(@tayer_id, 'a');
+CALL gameplay_move_in_direction(@tayer_id, 'a');
+CALL gameplay_move_in_direction(@tayer_id, 'a');
+CALL gameplay_move_in_direction(@tayer_id, 'a');
+
+-- get coins from tayer's lobby
+SELECT ei.entity_instance_id
+INTO @coins
+FROM entity_instance AS ei
+JOIN entity_instance AS player
+    ON player.player_character_id = @tayer_id
+WHERE player.tile_instance_id = ei.tile_instance_id
+  AND ei.item_id IS NOT NULL
+LIMIT 1;
+
+
+-- 7. Player game play acquiring inventory, e.g., picking up items off a tile and putting them in an inventory (bag?)
+-- pick up coins
+-- item_pick_up(player_character_id_in, entity_instance_id_in)
+-- CALL debug_view_room(@tayer_room_id);
+CALL item_pick_up(@tayer_id, @coins);
+
+CALL inventory_get(@tayer_id, 'carried');
+CALL inventory_get(@tayer_id, 'stash');
+
+CALL inventory_drop(@tayer_id, 1);
+
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+CALL gameplay_move_in_direction(@tayer_id, 'd');
+CALL gameplay_move_in_direction(@tayer_id, 's');
+CALL gameplay_move_in_direction(@tayer_id, 's');
+
+-- 10. Add new players
+-- Invite Tadmin to Tayer's party
+SELECT party_id 
+INTO @tayer_party_id
+FROM player_character
+WHERE user_account_id = @tayer_character;
+
+CALL party_invite(
+    @tayer_party_id,
+    @tayer_character,
+    @tadmin_character
+);
+
+CALL party_add_player(
+    @tayer_party_id,
+    @tadmin_character
+);
+
+CALL gameplay_move_in_direction(@tayer_character, 's');
+CALL gameplay_move_in_direction(@tayer_character, 'w');
+
+CALL gameplay_move_in_direction(@tadmin_character, 's');
+
+CALL character_logout(@tayer_character);
+
+CALL account_login("TestPlayer@kharst.game", "Admin123");
+CALL character_play(@tayer_character);
+
+-- get tayer's new data
+SELECT
+    pc.player_character_id,
+    pc.party_id,
+    p.room_instance_id
+INTO
+    @tayer_id,
+    @tayer_party_id,
+    @tayer_room_id
+FROM player_character AS pc
+JOIN party AS p
+    ON p.party_id = pc.party_id
+WHERE pc.`name` = 'Tayer';
+
+-- Invite Tadmin to Tayer's party
+SELECT party_id
+INTO @tayer_party_id
+FROM player_character
+WHERE player_character_id = @tayer_character;
+
+CALL party_invite(
+    @tayer_party_id,
+    @tayer_character,
+    @tadmin_character
+);
+
+
+CALL party_add_player(
+    @tayer_party_id,
+    @tadmin_character
+);
+
+CALL room_get(@tadmin_character);
+CALL party_toggle_ready(@tadmin_character);
+CALL party_toggle_ready(@tayer_character);
+
+CALL debug_view_room(@tayer_room_id);
+DO sleep(4);
+CALL debug_view_room(@tayer_room_id);
+
+
+
+-- comment the line below and its pair above to enable PHASE 1
+*/
+
+-- START OF TESTING PHASE 1 - PRE GAME --
+-- please comment all previous code out and uncomment the following code up to PHASE 2 - IN GAME --
+-- Or select the entirety of PHASE 1 - PRE GAME and run once uncommented 						 --
+
+-- Once PHASE 1 has concluded, a game will have started, and in game tests such as score, and npc movemnet are validated in PHASE 2
+
+
+
+-- comment the line below and its pair beneath PHASE 2 to enable PHASE 2
+-- make sure to recomment PHASE 1
+/*
+
+-- TESTING 2
+-- GAME HAS STARTED
+
+-- move to doorway
+CALL gameplay_move_in_direction(@tadmin_character, 'd');
+CALL gameplay_move_in_direction(@tayer_character, 'w');
+CALL gameplay_move_in_direction(@tayer_character, 'w');
+CALL gameplay_move_in_direction(@tayer_character, 'w');
+-- navigate doorway
+CALL gameplay_navigate_doorway(@tayer_character);
+
+-- get tayer's new room data
+CALL room_get(@tayer_character);
+
+-- get a reference to the item
+SELECT ei.entity_instance_id
+INTO @item_id
+
+FROM entity_instance AS player_entity
+JOIN tile_game_instance AS player_tile
+	ON player_tile.tile_instance_id = player_entity.tile_instance_id
+
+JOIN tile_game_instance AS tgi
+	ON tgi.room_instance_id = player_tile.room_instance_id
+ JOIN entity_instance AS ei
+	ON ei.tile_instance_id = tgi.tile_instance_id
+LEFT JOIN player_character AS pc
+	ON pc.player_character_id = ei.player_character_id
+LEFT JOIN item AS i
+	ON i.item_id = ei.item_id
+
+WHERE player_entity.player_character_id = @tayer_character
+AND tgi.position_x = 4
+AND tgi.position_y = 5
+ORDER BY entity_instance_id ASC
+LIMIT 1;
+
+-- 8. Move an Item (NPC effect)
+-- wait for npc to move
+DO sleep(4);
+-- look at room to see npc movemnt compared to the previous room_get
+CALL room_get(@tayer_character);
+
+-- move to item
+CALL gameplay_move_in_direction(@tayer_character, 'w');
+-- pick up item
+CALL item_pick_up(@tayer_character, @item_id);
+-- move back to door
+CALL gameplay_move_in_direction(@tayer_character, 's');
+-- navigate doorway back to lobby
+CALL gameplay_navigate_doorway(@tayer_character);
+
+-- 6. Game play scoring. How do players gain and lose points
+-- returning to the lobby has awarded points, check them now
+CALL score_get(@tayer_character);
+-- return to th cave
+CALL gameplay_navigate_doorway(@tayer_character);
+-- entering to the cave has taken points, check them now
+CALL score_get(@tayer_character);
+-- points are back to zero
+-- back to the lobby
+CALL gameplay_navigate_doorway(@tayer_character);
+-- the gem we picked up was worth 50 points
+CALL score_get(@tayer_character); 
+
+-- get the party_id
+SELECT party_id
+INTO @tayer_party_id
+FROM player_character
+WHERE player_character_id = @tayer_character;
+
+-- get the game id from the party id
+SELECT game_id
+INTO @game_id
+FROM party
+WHERE party_id = @tayer_party_id;
+
+-- 9. Kill running games
+-- kill the game
+CALL game_end(@game_id)
+
+-- comment the line below and its pair above to enable PHASE 2
+*/

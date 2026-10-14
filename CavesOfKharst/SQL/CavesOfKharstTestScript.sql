@@ -1,5 +1,7 @@
 -- TESTING --
 -- ACCOUNT --
+
+-- 2. Player registration
 -- account_register(email, password, admin)
 -- regular
 CALL account_register("TestPlayer@kharst.game","Admin123", FALSE);
@@ -8,6 +10,7 @@ CALL account_register("TestAdmin@kharst.game","Admin123", TRUE);
 -- check
 SELECT * FROM user_account;
 
+-- 1. Player login, including lock out
 -- account_login(email, password)
 CALL account_login("TestPlayer@kharst.game", "Admin123");
 -- wrong password
@@ -22,11 +25,13 @@ SELECT * FROM user_account
 WHERE email = "TestPlayer@kharst.game";
 -- attempt login
 CALL account_login("TestPlayer@kharst.game", "Admin123");
--- reset
+-- reset lockout
 UPDATE user_account
 SET lockout_time = NULL
 WHERE email = "TestPlayer@kharst.game";
 
+
+-- 11. Update data of a player
 -- account_update_email(old_email, new_email)
 CALL account_update_email("TestPlayer@kharst.game", "UpdatedPlayer@kharst.game");
 -- check account
@@ -43,6 +48,7 @@ CALL account_login("UpdatedPlayer@kharst.game", "Admin123");
 -- attempt login with new credentials
 CALL account_login("UpdatedPlayer@kharst.game", "UpdatedPassword");
 
+-- 12. Delete a player
 -- account_delete(email)
 CALL account_delete("UpdatedPlayer@kharst.game");
 -- check account
@@ -77,7 +83,10 @@ CALL character_create("Tadmin", @tadmin_account);
 SELECT player_character_id INTO @tadmin_character FROM player_character WHERE `name` = "Tadmin";
 
 -- CHARACTER PLAY
--- \\character_play(player_character_id_in)
+-- character_play(player_character_id_in)
+
+-- 3. Laying out tiles on a game board
+-- 4. Placing an item on a tile
 CALL character_play(@tadmin_character);
 -- check parties
 -- SELECT * FROM party;
@@ -225,6 +234,8 @@ WHERE pc.`name` = 'Tayer';
 -- check new party messages
 CALL party_get_messages(@tayer_id);
 
+
+-- 5. Player game play movement, i.e., moving a player to a “legal” tile
 -- movement
 -- invalid input
 CALL gameplay_move_in_direction(@tayer_id, 'q');
@@ -266,6 +277,9 @@ JOIN entity_instance AS player
 WHERE player.tile_instance_id = ei.tile_instance_id
   AND ei.item_id IS NOT NULL
 LIMIT 1;
+
+
+-- 7. Player game play acquiring inventory, e.g., picking up items off a tile and putting them in an inventory (bag?)
 -- pick up coins
 -- item_pick_up(player_character_id_in, entity_instance_id_in)
 -- CALL debug_view_room(@tayer_room_id);
@@ -281,6 +295,7 @@ CALL gameplay_move_in_direction(@tayer_id, 'd');
 CALL gameplay_move_in_direction(@tayer_id, 's');
 CALL gameplay_move_in_direction(@tayer_id, 's');
 
+-- 10. Add new players
 -- Invite Tadmin to Tayer's party
 SELECT party_id 
 INTO @tayer_party_id
@@ -345,7 +360,7 @@ CALL party_toggle_ready(@tadmin_character);
 CALL party_toggle_ready(@tayer_character);
 
 CALL debug_view_room(@tayer_room_id);
-DO sleep(11);
+DO sleep(4);
 CALL debug_view_room(@tayer_room_id);
 
 
