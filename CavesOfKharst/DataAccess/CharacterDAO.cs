@@ -301,7 +301,7 @@ namespace CavesOfKharst.DataAccess
             return table;
         }
 
-    public DataTable GetRoom(int characterId)
+        public DataTable GetRoom(int characterId)
         {
             DataTable table = new DataTable();
             _connection.Open();
@@ -322,6 +322,30 @@ namespace CavesOfKharst.DataAccess
                 _connection.Close();
             }
             return table;
+        }
+
+
+        public string MoveCharacter(int characterId, string direction)
+        {
+            string result = "";
+            try
+            {
+                _connection.Open();
+
+                MySqlCommand cmd = new MySqlCommand("gameplay_move_in_direction", _connection);
+
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+                cmd.Parameters.AddWithValue("direction_in", direction);
+
+                result = cmd.ExecuteScalar().ToString();
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return result;
         }
     }
 }

@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+
 namespace CavesOfKharst.Forms
 {
     public partial class FormGame : Form
@@ -23,6 +24,7 @@ namespace CavesOfKharst.Forms
         private Form characterSelect;
 
         private int tileSize = 63;
+        private bool boardCreated = false;
 
         // Dictionary to hold the entity images
         private Dictionary<string, Image> entityImages  = new Dictionary<string, Image>();
@@ -197,53 +199,84 @@ namespace CavesOfKharst.Forms
             CharacterDAO dao = new CharacterDAO();
             DataTable room = dao.GetRoom(characterId);
 
-            // Clear the game board
-            //panelGameBoard.Controls.Clear();
-
-            // Draw every tile
-            foreach (DataRow row in room.Rows)
+            if (!boardCreated)
             {
-                Panel tile      = new Panel();
-                tile.Size       = new Size(tileSize, tileSize);
-                tile.Location   = new Point(
-                    Convert.ToInt32(row["position_x"]) * tileSize,
-                    Convert.ToInt32(row["position_y"]) * tileSize);
-                tile.BackColor   = Color.FromArgb(10, 20, 50);
-                tile.BorderStyle = BorderStyle.FixedSingle;
-                panelGameBoard.Controls.Add(tile);
+                foreach (DataRow row in room.Rows)
+                {
+                    Panel tile      = new Panel();
+                    tile.Size       = new Size(tileSize, tileSize);
+                    tile.Location   = new Point(
+                        Convert.ToInt32(row["position_x"]) * tileSize,
+                        Convert.ToInt32(row["position_y"]) * tileSize);
+
+                    tile.BackColor = Color.FromArgb(10, 20, 50);
+                    panelGameBoard.Controls.Add(tile);
+                }
+
+                boardCreated = true;
             }
-
-            // Draw entities
+            // Create a list to track current entities
+            List<long> currentEntities = new List<long>();
+            
             foreach (DataRow row in room.Rows)
             {
+                if (row["entity_instance_id"] == DBNull.Value)
+                    continue;
+
+                long id = Convert.ToInt64(row["entity_instance_id"]);
+                currentEntities.Add(id);
+
                 string entityName = null;
 
-                // Determine the entity type based on the available data
                 if (row["player_character_id"] != DBNull.Value)
                     entityName = "wizard";
+
                 else if (row["item_name"] != DBNull.Value)
                     entityName = row["item_name"].ToString();
+
                 else if (row["structure_name"] != DBNull.Value)
                     entityName = row["structure_name"].ToString();
+
                 else if (row["npc_id"] != DBNull.Value)
-                    entityName = "rat";
+                    entityName = row["npc_name"].ToString();
 
                 if (entityName == null || !entityImages.ContainsKey(entityName))
                     continue;
 
-                // Create a PictureBox for the entity
-                PictureBox picture  = new PictureBox();
-                picture.Size        = new Size(tileSize, tileSize);
-                picture.Location    = new Point(
+                // Create an image only for a new entity
+                if (!boardEntities.ContainsKey(id))
+                {
+                    PictureBox picture = new PictureBox();
+                    picture.Size = new Size(tileSize, tileSize);
+                    picture.SizeMode = PictureBoxSizeMode.Zoom;
+                    picture.BackColor = Color.FromArgb(10, 20, 50);
+                    picture.Image = entityImages[entityName];
+                    
+                    boardEntities[id] = picture;
+                    panelGameBoard.Controls.Add(picture);
+                    picture.BringToFront();
+                }
+
+                // Update the existing entity's position
+                boardEntities[id].Location = new Point(
                     Convert.ToInt32(row["position_x"]) * tileSize,
                     Convert.ToInt32(row["position_y"]) * tileSize);
-                picture.SizeMode    = PictureBoxSizeMode.Zoom;
-                picture.BackColor   = Color.FromArgb(10, 20, 50);
-                picture.BorderStyle = BorderStyle.FixedSingle;
-                picture.Image       = entityImages[entityName];
+            }
 
-                panelGameBoard.Controls.Add(picture);
-                picture.BringToFront();
+            // Remove entities that no longer exist
+            List<long> removedEntities = new List<long>();
+
+            foreach (long id in boardEntities.Keys)
+            {
+                if (!currentEntities.Contains(id))
+                    removedEntities.Add(id);
+            }
+
+            foreach (long id in removedEntities)
+            {
+                panelGameBoard.Controls.Remove(boardEntities[id]);
+                boardEntities[id].Dispose();
+                boardEntities.Remove(id);
             }
         }
 
@@ -340,24 +373,44 @@ namespace CavesOfKharst.Forms
 
         }
 
+        private void MovePlayer(string direction)
+        {
+            CharacterDAO dao = new CharacterDAO();
+
+            string result = dao.MoveCharacter(characterId, direction);
+
+            if (result == "Moved")
+                LoadBoard();
+        }
+        private void FormGame_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode      == Keys.W || e.KeyCode == Keys.Up)
+                MovePlayer("w");
+            else if (e.KeyCode == Keys.A || e.KeyCode == Keys.Left)
+                MovePlayer("a");
+            else if (e.KeyCode == Keys.S || e.KeyCode == Keys.Down)
+                MovePlayer("s");
+            else if (e.KeyCode == Keys.D || e.KeyCode == Keys.Right)
+                MovePlayer("d");
+        }
         private void btnMoveUp_Click(object sender, EventArgs e)
         {
-
+            MovePlayer("w");
         }
 
         private void btnMoveLeft_Click(object sender, EventArgs e)
         {
-
+            MovePlayer("a");
         }
 
         private void btnMoveDown_Click(object sender, EventArgs e)
         {
-
+            MovePlayer("s");
         }
 
         private void btnMoveRight_Click(object sender, EventArgs e)
         {
-
+            MovePlayer("d");
         }
 
         private void btnSend_Click(object sender, EventArgs e)

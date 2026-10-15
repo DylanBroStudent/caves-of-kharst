@@ -823,7 +823,7 @@
             // refreshTimer
             // 
             refreshTimer.Enabled = true;
-            refreshTimer.Interval = 1000;
+            refreshTimer.Interval = 250;
             refreshTimer.Tick += refreshTimer_Tick;
             // 
             // FormGame
@@ -833,10 +833,12 @@
             ClientSize = new Size(1184, 761);
             Controls.Add(tableLayoutPanel9);
             Controls.Add(tableLayoutPanel7);
+            KeyPreview = true;
             MinimumSize = new Size(1200, 800);
             Name = "FormGame";
             Text = "Caves of Kharst";
             FormClosing += FormGame_FormClosing;
+            KeyDown += FormGame_KeyDown;
             gridSpacer.ResumeLayout(false);
             tableLayoutPanel1.ResumeLayout(false);
             tableLayoutPanel1.PerformLayout();
