@@ -30,7 +30,7 @@
         {
             components = new System.ComponentModel.Container();
             gridSpacer = new TableLayoutPanel();
-            gridRoom = new TableLayoutPanel();
+            panelGameBoard = new Panel();
             tableLayoutPanel1 = new TableLayoutPanel();
             label2 = new Label();
             tableLayoutPanel14 = new TableLayoutPanel();
@@ -103,9 +103,9 @@
             gridSpacer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             gridSpacer.ColumnCount = 3;
             gridSpacer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            gridSpacer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420F));
+            gridSpacer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 600F));
             gridSpacer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            gridSpacer.Controls.Add(gridRoom, 1, 1);
+            gridSpacer.Controls.Add(panelGameBoard, 1, 1);
             gridSpacer.Location = new Point(3, 3);
             gridSpacer.Name = "gridSpacer";
             gridSpacer.RowCount = 3;
@@ -115,31 +115,14 @@
             gridSpacer.Size = new Size(760, 583);
             gridSpacer.TabIndex = 0;
             // 
-            // gridRoom
+            // panelGameBoard
             // 
-            gridRoom.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            gridRoom.ColumnCount = 7;
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857113F));
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857151F));
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857151F));
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857151F));
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857151F));
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857151F));
-            gridRoom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14.2857151F));
-            gridRoom.Location = new Point(173, 24);
-            gridRoom.Name = "gridRoom";
-            gridRoom.RowCount = 9;
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.11111F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.RowStyles.Add(new RowStyle(SizeType.Percent, 11.1111107F));
-            gridRoom.Size = new Size(414, 534);
-            gridRoom.TabIndex = 1;
+            panelGameBoard.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panelGameBoard.AutoScroll = true;
+            panelGameBoard.Location = new Point(83, 24);
+            panelGameBoard.Name = "panelGameBoard";
+            panelGameBoard.Size = new Size(594, 534);
+            panelGameBoard.TabIndex = 0;
             // 
             // tableLayoutPanel1
             // 
@@ -840,7 +823,7 @@
             // refreshTimer
             // 
             refreshTimer.Enabled = true;
-            refreshTimer.Interval = 250;
+            refreshTimer.Interval = 1000;
             refreshTimer.Tick += refreshTimer_Tick;
             // 
             // FormGame
@@ -913,7 +896,6 @@
         private Label label12;
         private Label label11;
         private Label lblName;
-        private TableLayoutPanel gridRoom;
         private Button btnReady;
         private TableLayoutPanel tableLayoutPanel12;
         private Button btnPickup;
@@ -934,5 +916,6 @@
         private TableLayoutPanel tableLayoutPanel14;
         private Button btnViewInvites;
         private System.Windows.Forms.Timer refreshTimer;
+        private Panel panelGameBoard;
     }
 }

@@ -22,6 +22,13 @@ namespace CavesOfKharst.Forms
         private FormLogin formLogin;
         private Form characterSelect;
 
+        private int tileSize = 63;
+
+        // Dictionary to hold the entity images
+        private Dictionary<string, Image> entityImages  = new Dictionary<string, Image>();
+        // Dictionary to hold entities
+        private Dictionary<long, PictureBox> boardEntities = new Dictionary<long, PictureBox>();
+
         private int kickCharacterId1;
         private int kickCharacterId2;
         private int kickCharacterId3;
@@ -40,7 +47,35 @@ namespace CavesOfKharst.Forms
             this.Text = $"Caves of Kharst - {characterName}";
 
             LoadParty();
+            LoadEntityImages();
         }
+
+        private void LoadEntityImages()
+        {
+            string folder = Path.Combine(Application.StartupPath, "Images");
+
+            // Load images for entities
+
+            // Items
+            entityImages["Coin"]                   = Image.FromFile(Path.Combine(folder, "coin.png"));
+            entityImages["Brilliant Teleport Gem"] = Image.FromFile(Path.Combine(folder, "gem2.png"));
+            entityImages["Brilliant Fireball Gem"] = Image.FromFile(Path.Combine(folder, "gem1.png"));
+            entityImages["Radiant Fireball Gem"]   = Image.FromFile(Path.Combine(folder, "gem1.png"));
+
+            // Players
+            entityImages["wizard"] = Image.FromFile(Path.Combine(folder, "wizard.png"));
+
+            //NPCs
+            entityImages["rat"] = Image.FromFile(Path.Combine(folder, "rat.png"));
+
+            // Structures
+            entityImages["rock"]     = Image.FromFile(Path.Combine(folder, "rock.png"));
+            entityImages["doorway"]  = Image.FromFile(Path.Combine(folder, "doorway.png"));
+            entityImages["shop"]     = Image.FromFile(Path.Combine(folder, "shop.png"));
+            entityImages["stash"]    = Image.FromFile(Path.Combine(folder, "stash.png"));
+            entityImages["wardrobe"] = Image.FromFile(Path.Combine(folder, "wardrobe.png"));
+        }
+
         private void CloseGame()
         {
             loggingOut = true;
@@ -157,7 +192,60 @@ namespace CavesOfKharst.Forms
                 }
             }
         }
+        private void LoadBoard()
+        {
+            CharacterDAO dao = new CharacterDAO();
+            DataTable room = dao.GetRoom(characterId);
 
+            // Clear the game board
+            //panelGameBoard.Controls.Clear();
+
+            // Draw every tile
+            foreach (DataRow row in room.Rows)
+            {
+                Panel tile      = new Panel();
+                tile.Size       = new Size(tileSize, tileSize);
+                tile.Location   = new Point(
+                    Convert.ToInt32(row["position_x"]) * tileSize,
+                    Convert.ToInt32(row["position_y"]) * tileSize);
+                tile.BackColor   = Color.FromArgb(10, 20, 50);
+                tile.BorderStyle = BorderStyle.FixedSingle;
+                panelGameBoard.Controls.Add(tile);
+            }
+
+            // Draw entities
+            foreach (DataRow row in room.Rows)
+            {
+                string entityName = null;
+
+                // Determine the entity type based on the available data
+                if (row["player_character_id"] != DBNull.Value)
+                    entityName = "wizard";
+                else if (row["item_name"] != DBNull.Value)
+                    entityName = row["item_name"].ToString();
+                else if (row["structure_name"] != DBNull.Value)
+                    entityName = row["structure_name"].ToString();
+                else if (row["npc_id"] != DBNull.Value)
+                    entityName = "rat";
+
+                if (entityName == null || !entityImages.ContainsKey(entityName))
+                    continue;
+
+                // Create a PictureBox for the entity
+                PictureBox picture  = new PictureBox();
+                picture.Size        = new Size(tileSize, tileSize);
+                picture.Location    = new Point(
+                    Convert.ToInt32(row["position_x"]) * tileSize,
+                    Convert.ToInt32(row["position_y"]) * tileSize);
+                picture.SizeMode    = PictureBoxSizeMode.Zoom;
+                picture.BackColor   = Color.FromArgb(10, 20, 50);
+                picture.BorderStyle = BorderStyle.FixedSingle;
+                picture.Image       = entityImages[entityName];
+
+                panelGameBoard.Controls.Add(picture);
+                picture.BringToFront();
+            }
+        }
 
         private void btnLogout_Click(object sender, EventArgs e)
         {
@@ -343,6 +431,7 @@ namespace CavesOfKharst.Forms
         {
             LoadParty();
             LoadMessages();
+            LoadBoard();
         }
     }
 }

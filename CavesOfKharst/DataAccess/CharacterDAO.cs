@@ -44,7 +44,7 @@ namespace CavesOfKharst.DataAccess
 
             try
             {
-                MySqlCommand cmd = new MySqlCommand( "character_find_by_name", _connection);
+                MySqlCommand cmd = new MySqlCommand("character_find_by_name", _connection);
 
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.Parameters.AddWithValue("character_name_in", name);
@@ -82,7 +82,7 @@ namespace CavesOfKharst.DataAccess
             }
 
             catch (MySqlException ex)
-            {  
+            {
                 Console.WriteLine($"Error creating character: {ex.Message}");
                 return false;
             }
@@ -140,7 +140,7 @@ namespace CavesOfKharst.DataAccess
 
             try
             {
-                MySqlCommand command = new MySqlCommand( "party_get", _connection);
+                MySqlCommand command = new MySqlCommand("party_get", _connection);
 
                 command.CommandType = CommandType.StoredProcedure;
                 command.Parameters.AddWithValue("player_character_id_in", characterId);
@@ -202,7 +202,6 @@ namespace CavesOfKharst.DataAccess
         public void SendPartyInvite(int partyId, int inviterCharacterId, int inviteeCharacterId)
         {
             _connection.Open();
-
             try
             {
                 MySqlCommand cmd = new MySqlCommand(
@@ -224,7 +223,6 @@ namespace CavesOfKharst.DataAccess
         public void AddPlayerToParty(int partyId, int characterId)
         {
             _connection.Open();
-
             try
             {
                 MySqlCommand command = new MySqlCommand("party_add_player", _connection);
@@ -244,7 +242,6 @@ namespace CavesOfKharst.DataAccess
         public void RemovePlayerFromParty(int characterId)
         {
             _connection.Open();
-
             try
             {
                 MySqlCommand command = new MySqlCommand(
@@ -267,7 +264,6 @@ namespace CavesOfKharst.DataAccess
         public void SendMessage(int characterId, string contents)
         {
             _connection.Open();
-
             try
             {
                 MySqlCommand command = new MySqlCommand("party_send_message", _connection);
@@ -288,9 +284,7 @@ namespace CavesOfKharst.DataAccess
         public DataTable GetMessages(int characterId)
         {
             DataTable table = new DataTable();
-
             _connection.Open();
-
             try
             {
                 MySqlCommand command = new MySqlCommand("party_get_messages", _connection);
@@ -304,7 +298,29 @@ namespace CavesOfKharst.DataAccess
             {
                 _connection.Close();
             }
+            return table;
+        }
 
+    public DataTable GetRoom(int characterId)
+        {
+            DataTable table = new DataTable();
+            _connection.Open();
+            try
+            {
+                MySqlCommand command = new MySqlCommand(
+                    "room_get", _connection);
+
+                command.CommandType = CommandType.StoredProcedure;
+
+                command.Parameters.AddWithValue("player_character_id_in", characterId);
+
+                MySqlDataAdapter adapter = new MySqlDataAdapter(command);
+                adapter.Fill(table);
+            }
+            finally
+            {
+                _connection.Close();
+            }
             return table;
         }
     }

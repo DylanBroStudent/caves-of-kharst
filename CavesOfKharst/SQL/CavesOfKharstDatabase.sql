@@ -1581,7 +1581,8 @@ BEGIN
         r.width,
         r.height,
         ri.depth,
-
+		
+        t.symbol AS tile_symbol,
         ei.entity_instance_id,
         ei.player_character_id,
         pc.`name` AS character_name,
@@ -1620,6 +1621,8 @@ BEGIN
         ON i.item_id = ei.item_id
 	LEFT JOIN structure AS s
 		ON s.structure_id = ei.structure_id
+	JOIN tile AS t
+		ON t.tile_id = tgi.tile_id
 
     WHERE player_entity.player_character_id = player_character_id_in
 
@@ -3438,6 +3441,8 @@ WHERE party_id = @tayer_party_id;
 -- 9. Kill running games
 -- kill the game
 CALL game_end(@game_id)
+
+
 
 -- see the doorway into the caves gone
 CALL room_get(@tayer_character);
