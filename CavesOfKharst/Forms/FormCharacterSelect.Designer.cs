@@ -32,6 +32,9 @@
             label2 = new Label();
             lblUser = new Label();
             btnLogout = new Button();
+            listCharacters = new FlowLayoutPanel();
+            btnSettings = new Button();
+            btnNewCharacter = new Button();
             SuspendLayout();
             // 
             // label1
@@ -50,7 +53,7 @@
             label2.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             label2.AutoSize = true;
             label2.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            label2.Location = new Point(12, 89);
+            label2.Location = new Point(12, 113);
             label2.Name = "label2";
             label2.Size = new Size(111, 30);
             label2.TabIndex = 5;
@@ -71,7 +74,7 @@
             // 
             btnLogout.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnLogout.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            btnLogout.Location = new Point(523, 12);
+            btnLogout.Location = new Point(468, 12);
             btnLogout.Name = "btnLogout";
             btnLogout.Size = new Size(104, 38);
             btnLogout.TabIndex = 7;
@@ -79,18 +82,57 @@
             btnLogout.UseVisualStyleBackColor = true;
             btnLogout.Click += btnLogout_Click;
             // 
+            // listCharacters
+            // 
+            listCharacters.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            listCharacters.AutoScroll = true;
+            listCharacters.FlowDirection = FlowDirection.TopDown;
+            listCharacters.Location = new Point(12, 153);
+            listCharacters.Name = "listCharacters";
+            listCharacters.Size = new Size(560, 296);
+            listCharacters.TabIndex = 8;
+            listCharacters.WrapContents = false;
+            // 
+            // btnSettings
+            // 
+            btnSettings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSettings.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnSettings.Location = new Point(358, 12);
+            btnSettings.Name = "btnSettings";
+            btnSettings.Size = new Size(104, 38);
+            btnSettings.TabIndex = 9;
+            btnSettings.Text = "Settings";
+            btnSettings.UseVisualStyleBackColor = true;
+            btnSettings.Click += btnSettings_Click;
+            // 
+            // btnNewCharacter
+            // 
+            btnNewCharacter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnNewCharacter.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnNewCharacter.Location = new Point(358, 109);
+            btnNewCharacter.Name = "btnNewCharacter";
+            btnNewCharacter.Size = new Size(214, 38);
+            btnNewCharacter.TabIndex = 10;
+            btnNewCharacter.Text = "New Character";
+            btnNewCharacter.UseVisualStyleBackColor = true;
+            btnNewCharacter.Click += btnNewCharacter_Click;
+            // 
             // FormCharacterSelect
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnLogout;
-            ClientSize = new Size(639, 578);
+            ClientSize = new Size(584, 461);
+            Controls.Add(btnNewCharacter);
+            Controls.Add(btnSettings);
+            Controls.Add(listCharacters);
             Controls.Add(btnLogout);
             Controls.Add(lblUser);
             Controls.Add(label2);
             Controls.Add(label1);
+            MinimumSize = new Size(600, 500);
             Name = "FormCharacterSelect";
-            Text = "FormCharacterSelect";
+            Text = " ";
             Load += FormCharacterSelect_Load;
             ResumeLayout(false);
             PerformLayout();
@@ -102,5 +144,8 @@
         private Label label2;
         private Label lblUser;
         private Button btnLogout;
+        private FlowLayoutPanel listCharacters;
+        private Button btnSettings;
+        private Button btnNewCharacter;
     }
 }

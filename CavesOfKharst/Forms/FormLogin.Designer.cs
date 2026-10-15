@@ -44,14 +44,14 @@
             txtEmail.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             txtEmail.Location = new Point(12, 179);
             txtEmail.Name = "txtEmail";
-            txtEmail.Size = new Size(468, 35);
+            txtEmail.Size = new Size(480, 35);
             txtEmail.TabIndex = 2;
             // 
             // btnLogin
             // 
             btnLogin.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnLogin.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            btnLogin.Location = new Point(349, 341);
+            btnLogin.Location = new Point(361, 310);
             btnLogin.Name = "btnLogin";
             btnLogin.Size = new Size(131, 38);
             btnLogin.TabIndex = 5;
@@ -63,7 +63,7 @@
             // 
             btnRegister.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnRegister.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            btnRegister.Location = new Point(12, 341);
+            btnRegister.Location = new Point(12, 310);
             btnRegister.Name = "btnRegister";
             btnRegister.Size = new Size(131, 38);
             btnRegister.TabIndex = 6;
@@ -73,10 +73,9 @@
             // 
             // label1
             // 
-            label1.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 27.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label1.Location = new Point(112, 58);
+            label1.Location = new Point(107, 54);
             label1.Name = "label1";
             label1.Size = new Size(288, 50);
             label1.TabIndex = 0;
@@ -108,7 +107,7 @@
             ctrlPassword.Location = new Point(12, 248);
             ctrlPassword.Margin = new Padding(3, 4, 3, 4);
             ctrlPassword.Name = "ctrlPassword";
-            ctrlPassword.Size = new Size(468, 38);
+            ctrlPassword.Size = new Size(480, 38);
             ctrlPassword.TabIndex = 4;
             // 
             // FormLogin
@@ -116,7 +115,7 @@
             AcceptButton = btnLogin;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(492, 392);
+            ClientSize = new Size(504, 361);
             Controls.Add(ctrlPassword);
             Controls.Add(label3);
             Controls.Add(label2);
@@ -124,6 +123,7 @@
             Controls.Add(btnRegister);
             Controls.Add(btnLogin);
             Controls.Add(txtEmail);
+            MinimumSize = new Size(520, 400);
             Name = "FormLogin";
             Text = "form_login";
             Load += formLogin_Load;

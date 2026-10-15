@@ -47,6 +47,7 @@ BEGIN
 		email 			varchar(64)  NOT NULL UNIQUE,
 		`password` 		varchar(64)  NOT NULL,
 		`role` 			varchar(64)  NOT NULL DEFAULT 'player',
+        failed_logins   int(10)      NOT NULL DEFAULT 0,
         lockout_time	timestamp(6)
 	);
 
@@ -503,15 +504,63 @@ DELIMITER ;
 -- account_login
 DELIMITER //
 DROP PROCEDURE IF EXISTS account_login //
-CREATE PROCEDURE account_login(IN email_in VARCHAR(64), IN password_in VARCHAR(64))
+CREATE PROCEDURE account_login(
+    IN email_in VARCHAR(64), 
+    IN password_in VARCHAR(64)
+)
 BEGIN
-	SELECT * 
-    FROM user_account
-	WHERE email = email_in 
-    AND `password` = password_in
-    AND (
-		lockout_time IS NULL
-		OR now() >= lockout_time + INTERVAL 5 MINUTE);
+    -- account exists, locked
+    -- block
+    IF EXISTS (
+        SELECT 1
+        FROM user_account
+        WHERE email = email_in
+            AND lockout_time IS NOT NULL
+            AND NOW(6) < lockout_time + INTERVAL 5 MINUTE
+    ) THEN
+        SELECT 'locked' AS login_result;
+
+    -- account exists, correct password
+    ELSEIF EXISTS (
+        SELECT 1
+        FROM user_account
+        WHERE email = email_in
+            AND `password` = password_in
+    ) THEN
+
+        -- reset the failed login counter and lockout time
+        UPDATE user_account
+        SET failed_logins = 0,
+            lockout_time = NULL
+        WHERE email = email_in;
+
+        SELECT user_account_id, email, `password`, `role`
+        FROM user_account
+        WHERE email = email_in;
+
+    ELSE
+
+        -- Incorrect credentials: increment the counter.
+        UPDATE user_account
+        SET failed_logins = failed_logins + 1
+        WHERE email = email_in;
+
+        -- Lock account on fifth failure.
+        IF EXISTS (
+            SELECT 1
+            FROM user_account
+            WHERE email = email_in
+                AND failed_logins >= 5
+        ) THEN
+            CALL account_lockout(email_in);
+            SELECT 'locked' AS login_result;
+        ELSE
+            SELECT 'invalid' AS login_result;
+        END IF;
+
+    END IF;
+
+
 END //
 DELIMITER ;
 
@@ -524,7 +573,7 @@ DROP PROCEDURE IF EXISTS account_lockout //
 CREATE PROCEDURE account_lockout (IN email_in VARCHAR(64))
 BEGIN
 	UPDATE user_account
-    SET lockout_time = now()
+    SET lockout_time = now(6)
     WHERE email = email_in;
 END //
 DELIMITER ;
@@ -577,10 +626,29 @@ DELIMITER ;
 
 
 /*
-
+  ______  __    __       ___      .______          ___       ______ .___________. _______ .______      
+ /      ||  |  |  |     /   \     |   _  \        /   \     /      ||           ||   ____||   _  \     
+|  ,----'|  |__|  |    /  ^  \    |  |_)  |      /  ^  \   |  ,----'`---|  |----`|  |__   |  |_)  |    
+|  |     |   __   |   /  /_\  \   |      /      /  /_\  \  |  |         |  |     |   __|  |      /     
+|  `----.|  |  |  |  /  _____  \  |  |\  \----./  _____  \ |  `----.    |  |     |  |____ |  |\  \----.
+ \______||__|  |__| /__/     \__\ | _| `._____/__/     \__\ \______|    |__|     |_______|| _| `._____|
 */
 
 -- CHARACTER MANAGEMENT --
+
+-- Get character data
+-- character_get
+DELIMITER //
+DROP PROCEDURE IF EXISTS character_get //
+CREATE PROCEDURE character_get(IN user_account_id_in BIGINT)
+BEGIN
+    SELECT player_character_id, `name`, health, hue
+    FROM player_character
+    WHERE user_account_id = user_account_id_in
+    ORDER BY `name`;
+END //
+DELIMITER ;
+
 -- Create Character
 -- character_create
 DELIMITER //
@@ -639,11 +707,13 @@ BEGIN
 		player_character_id_in,
         new_party_id
     );
+
     -- Get the lobby created for this party
     SELECT room_instance_id
     INTO new_room_instance_id
     FROM party
     WHERE party_id = new_party_id;
+
     -- get the character's starting tile
     SELECT tile_instance_id
     INTO new_tile_instance_id
@@ -865,6 +935,7 @@ BEGIN
     WHERE inviter.player_character_id = inviter_character_id_in
 		AND inviter.party_id = party_id_in
 		AND inviter_character_id_in <> invitee_character_id_in
+	-- handle duplicate invites
     ON DUPLICATE KEY UPDATE
         inviter_character_id = VALUES(inviter_character_id);
 END //
@@ -2847,12 +2918,14 @@ CALL populate_game_data();
 
 -- START OF TESTING PHASE 1 - PRE GAME --
 -- please comment all previous code out and uncomment the following code up to PHASE 2 - IN GAME --
--- Or select the entirety of PHASE 1 - PRE GAME and run once uncommented 						 --
+-- Or select the entirety of PHASE 1 - PRE GAME and run						 --
 
 -- Once the Database has been initialised, run PHASE 1 of tests to test all database processes up to and including starting a game
 
 -- comment the line below and its pair beneath PHASE 1 to enable PHASE 1
 /*
+
+
 -- TESTING --
 -- ACCOUNT --
 
@@ -2937,32 +3010,14 @@ CALL character_create("Tadmin", @tadmin_account);
 -- get character id
 SELECT player_character_id INTO @tadmin_character FROM player_character WHERE `name` = "Tadmin";
 
+
+
 -- CHARACTER PLAY
 -- character_play(player_character_id_in)
 
 -- 3. Laying out tiles on a game board
 -- 4. Placing an item on a tile
 CALL character_play(@tadmin_character);
--- check parties
--- SELECT * FROM party;
--- View that lobby's tiles and entities
--- CALL debug_view_room(1);
-
--- Update character colour
--- SELECT player_character_id INTO @character_id FROM player_character WHERE `name` = "Tadmin";
-
--- Check original colour
--- SELECT player_character_id, `name`, hue 
--- FROM player_character 
--- WHERE player_character_id = @character_id;
-
--- Update character colour
--- CALL character_update_colour(@character_id, 180);
-
--- Check updated colour
--- SELECT player_character_id, `name`, hue 
--- FROM player_character 
--- WHERE player_character_id = @character_id;
 
 
 
@@ -2982,30 +3037,15 @@ INTO @tayer_character
 FROM player_character
 WHERE `name` = "Tayer";
 
--- Play game (creates Tayer's original party and lobby)
+-- Play game (creates Tayer's own party and lobby)
 CALL character_play(@tayer_character);
 
--- Get Tayer's original party
--- SELECT party_id
--- INTO @old_party_id
--- FROM player_character
--- WHERE player_character_id = @tayer_character;
-
--- Save the original lobby and game IDs
--- SELECT room_instance_id, game_id
--- INTO @old_room_id, @old_game_id
--- FROM party
--- WHERE party_id = @old_party_id;
-
--- Check parties and Tayer's room
--- SELECT * FROM party;
--- CALL debug_view_room(@old_room_id);
 
 -- Invite Tayer to Tadmin's party
 SELECT party_id 
 INTO @tadmin_party_id
 FROM player_character
-WHERE user_account_id = @tadmin_character;
+WHERE player_character_id = @tadmin_character;
 
 CALL party_invite(
     @tadmin_party_id,
@@ -3152,10 +3192,10 @@ CALL gameplay_move_in_direction(@tayer_id, 's');
 
 -- 10. Add new players
 -- Invite Tadmin to Tayer's party
-SELECT party_id 
+SELECT party_id
 INTO @tayer_party_id
 FROM player_character
-WHERE user_account_id = @tayer_character;
+WHERE player_character_id = @tayer_character;
 
 CALL party_invite(
     @tayer_party_id,
@@ -3170,7 +3210,6 @@ CALL party_add_player(
 
 CALL gameplay_move_in_direction(@tayer_character, 's');
 CALL gameplay_move_in_direction(@tayer_character, 'w');
-
 CALL gameplay_move_in_direction(@tadmin_character, 's');
 
 CALL character_logout(@tayer_character);
@@ -3178,36 +3217,31 @@ CALL character_logout(@tayer_character);
 CALL account_login("TestPlayer@kharst.game", "Admin123");
 CALL character_play(@tayer_character);
 
--- get tayer's new data
-SELECT
-    pc.player_character_id,
-    pc.party_id,
-    p.room_instance_id
-INTO
-    @tayer_id,
-    @tayer_party_id,
-    @tayer_room_id
-FROM player_character AS pc
-JOIN party AS p
-    ON p.party_id = pc.party_id
-WHERE pc.`name` = 'Tayer';
-
--- Invite Tadmin to Tayer's party
-SELECT party_id
-INTO @tayer_party_id
+-- Get Tayer's character ID
+SELECT player_character_id
+INTO @tayer_character
 FROM player_character
-WHERE player_character_id = @tayer_character;
+WHERE `name` = "Tayer";
+
+-- Invite Tayer to Tadmin's party
+SELECT party_id 
+INTO @tadmin_party_id
+FROM player_character
+WHERE player_character_id = @tadmin_character;
 
 CALL party_invite(
-    @tayer_party_id,
-    @tayer_character,
-    @tadmin_character
+    @tadmin_party_id,
+    @tadmin_character,
+    @tayer_character
 );
 
+-- Check the invitation exists
+-- SELECT * FROM party_invite;
 
+-- Accept the invitation and join Tadmin's party
 CALL party_add_player(
-    @tayer_party_id,
-    @tadmin_character
+    @tadmin_party_id,
+    @tayer_character
 );
 
 CALL room_get(@tadmin_character);
@@ -3223,11 +3257,23 @@ CALL debug_view_room(@tayer_room_id);
 -- comment the line below and its pair above to enable PHASE 1
 */
 
--- START OF TESTING PHASE 1 - PRE GAME --
--- please comment all previous code out and uncomment the following code up to PHASE 2 - IN GAME --
--- Or select the entirety of PHASE 1 - PRE GAME and run once uncommented 						 --
+-- END OF TESTING PHASE 1 - PRE GAME --
 
--- Once PHASE 1 has concluded, a game will have started, and in game tests such as score, and npc movemnet are validated in PHASE 2
+/*
+ __  .__   __.      _______      ___      .___  ___.  _______ 
+|  | |  \ |  |     /  _____|    /   \     |   \/   | |   ____|
+|  | |   \|  |    |  |  __     /  ^  \    |  \  /  | |  |__   
+|  | |  . `  |    |  | |_ |   /  /_\  \   |  |\/|  | |   __|  
+|  | |  |\   |    |  |__| |  /  _____  \  |  |  |  | |  |____ 
+|__| |__| \__|     \______| /__/     \__\ |__|  |__| |_______|
+                                                              
+*/
+
+-- please comment all previous code out and uncomment the following code up to PHASE 2 - IN GAME --
+-- Or select the entirety of PHASE 2 - IN GAME and run 						 --
+
+-- Once PHASE 1 has concluded, a game will have started
+-- in-game tests such as score, and npc movemnet are validated in PHASE 2
 
 
 
@@ -3315,6 +3361,9 @@ WHERE party_id = @tayer_party_id;
 -- 9. Kill running games
 -- kill the game
 CALL game_end(@game_id)
+
+-- see the doorway into the caves gone
+CALL room_get(@tayer_character);
 
 -- comment the line below and its pair above to enable PHASE 2
 */

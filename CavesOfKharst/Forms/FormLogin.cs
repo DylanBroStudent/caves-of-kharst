@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using CavesOfKharst.Classes;
 using CavesOfKharst.Controls;
 using CavesOfKharst.DataAccess;
 using CavesOfKharst.Forms;
@@ -29,16 +30,23 @@ namespace CavesOfKharst
         {
             string email = txtEmail.Text;
             string password = ctrlPassword.password;
+            
+            string loginResult;
 
             UserDAO userDAO = new UserDAO();
 
-            // get user
-            User user = userDAO.Login(email, password);
+            // login user
+            User user = userDAO.Login(email, password, out loginResult);
+
             if (user != null)
             {
                 FormCharacterSelect characterSelect = new FormCharacterSelect(user, this);
                 characterSelect.Show();
                 this.Hide();
+            }
+            else if (loginResult == "locked")
+            {
+                MessageBox.Show("Account locked. Please wait 5 minutes before trying again.");
             }
             else
             {

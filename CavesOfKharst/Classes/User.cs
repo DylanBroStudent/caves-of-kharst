@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CavesOfKharst.DataAccess
+namespace CavesOfKharst.Classes
 {
     public class User
     {
