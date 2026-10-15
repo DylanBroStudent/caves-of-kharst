@@ -104,13 +104,14 @@
             // btnBack
             // 
             btnBack.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btnBack.BackColor = Color.FromArgb(255, 192, 192);
             btnBack.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnBack.Location = new Point(26, 371);
             btnBack.Name = "btnBack";
             btnBack.Size = new Size(165, 42);
             btnBack.TabIndex = 8;
             btnBack.Text = "Back";
-            btnBack.UseVisualStyleBackColor = true;
+            btnBack.UseVisualStyleBackColor = false;
             btnBack.Click += btnBack_Click;
             // 
             // ctrlPassword1
@@ -148,7 +149,7 @@
             Controls.Add(btnRegister);
             Controls.Add(txtEmail);
             Name = "FormRegister";
-            Text = "form_register";
+            Text = "Caves of Kharst: Register";
             Load += formRegister_Load;
             ResumeLayout(false);
             PerformLayout();

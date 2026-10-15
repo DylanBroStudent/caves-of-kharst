@@ -76,13 +76,14 @@
             // 
             // btnCancel
             // 
+            btnCancel.BackColor = Color.FromArgb(255, 192, 192);
             btnCancel.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnCancel.Location = new Point(352, 19);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(120, 35);
             btnCancel.TabIndex = 4;
             btnCancel.Text = "Back";
-            btnCancel.UseVisualStyleBackColor = true;
+            btnCancel.UseVisualStyleBackColor = false;
             btnCancel.Click += btnCancel_Click;
             // 
             // FormCharacterCreate
@@ -97,7 +98,7 @@
             Controls.Add(label1);
             MinimumSize = new Size(300, 200);
             Name = "FormCharacterCreate";
-            Text = "FormCharacterCreate";
+            Text = "Create a Character";
             ResumeLayout(false);
             PerformLayout();
         }

@@ -17,6 +17,7 @@ namespace CavesOfKharst.Forms
     {
         // Data Access Object for characters
         private CharacterDAO characterDAO = new CharacterDAO();
+        private bool loggingOut = false;
 
         private User user;
         private FormLogin formLogin;
@@ -34,7 +35,6 @@ namespace CavesOfKharst.Forms
 
         private void btnLogout_Click(object sender, EventArgs e)
         {
-            formLogin.Show();
             this.Close();
         }
 
@@ -54,7 +54,10 @@ namespace CavesOfKharst.Forms
                 {
                     CtrlCharacter character = new CtrlCharacter(
                         Convert.ToInt32(row["player_character_id"]),
-                        row["name"].ToString());
+                        row["name"].ToString(),
+                        user,
+                        formLogin
+                    );
 
                     listCharacters.Controls.Add(character);
                 }
@@ -81,6 +84,26 @@ namespace CavesOfKharst.Forms
         {
             FormSettings settings = new FormSettings(user, this);
             settings.ShowDialog();
+        }
+
+        private void FormCharacterSelect_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (loggingOut)
+                return;
+
+            try
+            {
+                loggingOut = true;
+
+                formLogin.Show();
+            }
+            catch (Exception ex)
+            {
+                loggingOut = false;
+                e.Cancel = true;
+
+                MessageBox.Show("Could not close character selection: " + ex.Message);
+            }
         }
     }
 }

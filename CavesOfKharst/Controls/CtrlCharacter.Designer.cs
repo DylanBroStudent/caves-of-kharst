@@ -37,6 +37,7 @@
             // 
             lblName.AutoSize = true;
             lblName.Font = new Font("Segoe UI", 20.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            lblName.ForeColor = Color.Black;
             lblName.Location = new Point(11, 24);
             lblName.Name = "lblName";
             lblName.Size = new Size(93, 37);
@@ -46,29 +47,34 @@
             // buttonPlay
             // 
             buttonPlay.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            buttonPlay.BackColor = Color.FromArgb(192, 255, 192);
             buttonPlay.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             buttonPlay.Location = new Point(397, 89);
             buttonPlay.Name = "buttonPlay";
             buttonPlay.Size = new Size(116, 40);
             buttonPlay.TabIndex = 1;
             buttonPlay.Text = "Play";
-            buttonPlay.UseVisualStyleBackColor = true;
+            buttonPlay.UseVisualStyleBackColor = false;
+            buttonPlay.Click += buttonPlay_Click;
             // 
             // buttonDelete
             // 
+            buttonDelete.BackColor = Color.FromArgb(255, 192, 192);
             buttonDelete.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             buttonDelete.Location = new Point(11, 89);
             buttonDelete.Name = "buttonDelete";
             buttonDelete.Size = new Size(116, 40);
             buttonDelete.TabIndex = 2;
+            buttonDelete.TabStop = false;
             buttonDelete.Text = "Delete";
-            buttonDelete.UseVisualStyleBackColor = true;
+            buttonDelete.UseVisualStyleBackColor = false;
             buttonDelete.Click += buttonDelete_Click;
             // 
             // CtrlCharacter
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
+            BackColor = Color.White;
             Controls.Add(buttonDelete);
             Controls.Add(buttonPlay);
             Controls.Add(lblName);

@@ -45,13 +45,14 @@
             // btnBack
             // 
             btnBack.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnBack.BackColor = Color.FromArgb(255, 192, 192);
             btnBack.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnBack.Location = new Point(551, 12);
             btnBack.Name = "btnBack";
             btnBack.Size = new Size(119, 39);
-            btnBack.TabIndex = 0;
+            btnBack.TabIndex = 2;
             btnBack.Text = "Back";
-            btnBack.UseVisualStyleBackColor = true;
+            btnBack.UseVisualStyleBackColor = false;
             btnBack.Click += btnBack_Click;
             // 
             // label1
@@ -61,7 +62,7 @@
             label1.Location = new Point(12, 12);
             label1.Name = "label1";
             label1.Size = new Size(150, 45);
-            label1.TabIndex = 1;
+            label1.TabIndex = 0;
             label1.Text = "Settings:";
             // 
             // label2
@@ -71,7 +72,7 @@
             label2.Location = new Point(60, 98);
             label2.Name = "label2";
             label2.Size = new Size(111, 30);
-            label2.TabIndex = 2;
+            label2.TabIndex = 3;
             label2.Text = "New Email";
             // 
             // label3
@@ -81,7 +82,7 @@
             label3.Location = new Point(24, 169);
             label3.Name = "label3";
             label3.Size = new Size(147, 30);
-            label3.TabIndex = 3;
+            label3.TabIndex = 6;
             label3.Text = "New Password";
             label3.TextAlign = ContentAlignment.MiddleRight;
             // 
@@ -92,7 +93,7 @@
             btnUpdatePassword.Location = new Point(475, 215);
             btnUpdatePassword.Name = "btnUpdatePassword";
             btnUpdatePassword.Size = new Size(195, 37);
-            btnUpdatePassword.TabIndex = 5;
+            btnUpdatePassword.TabIndex = 10;
             btnUpdatePassword.Text = "Update Password";
             btnUpdatePassword.UseVisualStyleBackColor = true;
             btnUpdatePassword.Click += btnUpdatePassword_Click;
@@ -104,7 +105,7 @@
             txtNewEmail.Location = new Point(177, 98);
             txtNewEmail.Name = "txtNewEmail";
             txtNewEmail.Size = new Size(292, 35);
-            txtNewEmail.TabIndex = 6;
+            txtNewEmail.TabIndex = 4;
             // 
             // ctrlPassword1
             // 
@@ -121,7 +122,7 @@
             btnUpdateEmail.Location = new Point(475, 98);
             btnUpdateEmail.Name = "btnUpdateEmail";
             btnUpdateEmail.Size = new Size(195, 37);
-            btnUpdateEmail.TabIndex = 8;
+            btnUpdateEmail.TabIndex = 5;
             btnUpdateEmail.Text = "Update Email";
             btnUpdateEmail.UseVisualStyleBackColor = true;
             btnUpdateEmail.Click += btnUpdateEmail_Click;
@@ -141,7 +142,7 @@
             label4.Location = new Point(84, 215);
             label4.Name = "label4";
             label4.Size = new Size(87, 30);
-            label4.TabIndex = 10;
+            label4.TabIndex = 8;
             label4.Text = "Confirm";
             // 
             // btnDelete
@@ -163,7 +164,7 @@
             lblCurrentEmail.Location = new Point(168, 12);
             lblCurrentEmail.Name = "lblCurrentEmail";
             lblCurrentEmail.Size = new Size(209, 45);
-            lblCurrentEmail.TabIndex = 12;
+            lblCurrentEmail.TabIndex = 1;
             lblCurrentEmail.Text = "currentEmail";
             // 
             // FormSettings
@@ -185,7 +186,7 @@
             Controls.Add(btnBack);
             MinimumSize = new Size(700, 400);
             Name = "FormSettings";
-            Text = "FormSettings";
+            Text = "Settings";
             ResumeLayout(false);
             PerformLayout();
         }

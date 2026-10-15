@@ -1,4 +1,6 @@
 ﻿using CavesOfKharst.DataAccess;
+using CavesOfKharst.Forms;
+using CavesOfKharst.Classes;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -13,14 +15,23 @@ namespace CavesOfKharst.Controls
 {
     public partial class CtrlCharacter : UserControl
     {
+
         private int characterId;
+        private string characterName;
         private CharacterDAO characterDAO = new CharacterDAO();
 
-        public CtrlCharacter(int id, string name)
+        private User user;
+        private FormLogin formLogin;
+
+        public CtrlCharacter(int id, string name, User user, FormLogin formLogin)
         {
             InitializeComponent();
 
             characterId = id;
+            characterName = name;
+            this.user = user;
+            this.formLogin = formLogin;
+
             lblName.Text = name;
         }
 
@@ -37,6 +48,23 @@ namespace CavesOfKharst.Controls
 
             this.Parent.Controls.Remove(this);
             this.Dispose();
+        }
+
+        private void buttonPlay_Click(object sender, EventArgs e)
+        {
+            try // Start the game with the selected character
+            {
+                CharacterDAO dao = new CharacterDAO();
+                dao.PlayCharacter(characterId);
+
+                FormGame game = new FormGame(characterId, characterName, user, formLogin, this.FindForm());
+                game.Show();
+                this.FindForm().Hide();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not start game: " + ex.Message);
+            }
         }
     }
 }

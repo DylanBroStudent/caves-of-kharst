@@ -85,12 +85,13 @@ BEGIN
 	);
 
 	CREATE TABLE party (
-		party_id	 	 int(10)    NOT NULL AUTO_INCREMENT PRIMARY KEY,
-		game_id 		 int(10),
-		room_instance_id bigint(19) NOT NULL,
-        tick_count		 bigint(19) NOT NULL DEFAULT 0,
+		party_id	 	 	int(10)    NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		game_id 		 	int(10),
+		room_instance_id 	bigint(19) NOT NULL,
+        leader_character_id int(10),
+        tick_count		 	bigint(19) NOT NULL DEFAULT 0,
 		CONSTRAINT fk_party_game 		  FOREIGN KEY (game_id) 		 REFERENCES game (game_id) 					 ON DELETE CASCADE,
-		CONSTRAINT fk_party_room_instance FOREIGN KEY (room_instance_id) REFERENCES room_instance (room_instance_id) ON DELETE CASCADE
+        CONSTRAINT fk_party_room_instance FOREIGN KEY (room_instance_id) REFERENCES room_instance (room_instance_id) ON DELETE CASCADE
 	);
 
 	CREATE TABLE player_character (
@@ -99,12 +100,19 @@ BEGIN
 		health 				int(10) 	 NOT NULL,
 		hue 				int(3) 		 NOT NULL,
 		user_account_id 	bigint(19)   NOT NULL,
-		party_id 			int(10)      ,
+		party_id 			int(10),
         ready				bool		 NOT NULL DEFAULT FALSE,
 		CONSTRAINT fk_player_character_user  FOREIGN KEY (user_account_id)  REFERENCES user_account (user_account_id) ON DELETE CASCADE,
 		CONSTRAINT fk_player_character_party FOREIGN KEY (party_id) 		REFERENCES party (party_id)
 	);
 
+	-- Add party leader foreign key after player table is defined
+	ALTER TABLE 	party
+	ADD CONSTRAINT 	fk_party_leader
+		FOREIGN KEY (leader_character_id)
+		REFERENCES 	player_character(player_character_id)
+		ON DELETE SET NULL;
+    
 	CREATE TABLE party_invite (
 		party_invite_id 	 int(10)   AUTO_INCREMENT PRIMARY KEY,
 		party_id 			 int(10)   NOT NULL,
@@ -649,6 +657,21 @@ BEGIN
 END //
 DELIMITER ;
 
+-- get specific character id from name
+-- character_find_by_name
+DELIMITER //
+DROP PROCEDURE IF EXISTS character_find_by_name //
+CREATE PROCEDURE character_find_by_name (
+    IN character_name_in VARCHAR(100)
+)
+BEGIN
+    SELECT player_character_id
+    FROM player_character
+    WHERE `name` = character_name_in
+    LIMIT 1;
+END //
+DELIMITER ;
+
 -- Create Character
 -- character_create
 DELIMITER //
@@ -815,7 +838,19 @@ BEGIN
     SET party_id = NULL,
         ready = FALSE
     WHERE player_character_id = player_character_id_in;
-
+    
+	-- Transfer leadership if the departing character was leader.
+	UPDATE party
+	SET leader_character_id = (
+		SELECT 	 player_character_id
+		FROM 	 player_character
+		WHERE 	 party_id = old_party_id
+		ORDER BY player_character_id
+		LIMIT 	 1
+	)
+	WHERE party_id = old_party_id
+		AND leader_character_id = player_character_id_in;
+    
     -- Delete the party and lobby if nobody remains.
     IF NOT EXISTS (
         SELECT 1
@@ -858,6 +893,7 @@ CREATE PROCEDURE party_get (
 BEGIN
     SELECT
         p.party_id,
+        p.leader_character_id,
         p.game_id,
         p.room_instance_id,
         p.tick_count,
@@ -879,6 +915,30 @@ BEGIN
 END //
 DELIMITER ;
 
+-- Get invitations
+-- party_invites_get
+DELIMITER //
+DROP PROCEDURE IF EXISTS party_invites_get //
+CREATE PROCEDURE party_invites_get (
+    IN player_character_id_in INT
+)
+BEGIN
+    SELECT
+        pi.party_id,
+        pi.inviter_character_id,
+        inviter.`name` AS inviter_name,
+        invitee.`name` AS invitee_name
+    FROM party_invite pi
+    JOIN player_character inviter
+        ON inviter.player_character_id = pi.inviter_character_id
+    JOIN player_character invitee
+        ON invitee.player_character_id = pi.invitee_character_id
+    WHERE pi.invitee_character_id = player_character_id_in
+    ORDER BY pi.party_id;
+END //
+DELIMITER ;
+
+
 -- Create party
 -- party_create
 DELIMITER //
@@ -899,7 +959,12 @@ BEGIN
 
     -- Save the new party ID
     SET party_id_out = last_insert_id();
-
+    
+	-- Set the character as party leader
+	UPDATE party
+	SET leader_character_id = player_character_id_in
+	WHERE party_id = party_id_out;
+    
     -- Assign the character to the new party
     UPDATE player_character
     SET party_id = party_id_out,
@@ -1208,8 +1273,8 @@ BEGIN
     -- Get the current room, game, and room name.
     SELECT
         p.room_instance_id,
-        COALESCE(p.game_id, ri.game_id),
-        r.name
+        coalesce(p.game_id, ri.game_id),
+        r.`name`
     INTO
         old_room_id,
         old_game_id,
@@ -1260,6 +1325,18 @@ BEGIN
 	SET party_id = NULL,
 		ready = FALSE
 	WHERE player_character_id = player_character_id_in;
+    
+    -- Transfer leadership if the leaving character was leader.
+	UPDATE party
+	SET leader_character_id = (
+		SELECT player_character_id
+		FROM player_character
+		WHERE party_id = old_party_id
+		ORDER BY player_character_id
+		LIMIT 1
+	)
+	WHERE party_id = old_party_id
+		AND leader_character_id = player_character_id_in;
     
     -- Check whether the old party has any remaining characters.
 	SELECT NOT EXISTS (

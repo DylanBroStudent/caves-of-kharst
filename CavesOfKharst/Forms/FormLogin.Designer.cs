@@ -125,7 +125,7 @@
             Controls.Add(txtEmail);
             MinimumSize = new Size(520, 400);
             Name = "FormLogin";
-            Text = "form_login";
+            Text = "Caves of Kharst: Login";
             Load += formLogin_Load;
             ResumeLayout(false);
             PerformLayout();
