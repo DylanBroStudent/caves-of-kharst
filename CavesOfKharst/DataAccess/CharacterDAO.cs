@@ -414,5 +414,22 @@ namespace CavesOfKharst.DataAccess
                 _connection.Close();
             }
         }
+        public void NavigateDoorway(int characterId)
+        {
+            _connection.Open();
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand("gameplay_navigate_doorway", _connection);
+
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
     }
 }

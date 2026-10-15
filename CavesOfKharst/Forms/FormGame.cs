@@ -289,7 +289,7 @@ namespace CavesOfKharst.Forms
                     entityName = row["structure_name"].ToString();
 
                 else if (row["npc_id"] != DBNull.Value)
-                    entityName = row["npc_name"].ToString();
+                    entityName = "rat";
 
                 if (entityName == null || !entityImages.ContainsKey(entityName))
                     continue;
@@ -463,9 +463,24 @@ namespace CavesOfKharst.Forms
 
         private void btnEnterDoor_Click(object sender, EventArgs e)
         {
-
+            NavigateDoorway();
         }
 
+        private void NavigateDoorway()
+        {
+            try
+            {
+                CharacterDAO dao = new CharacterDAO();
+                dao.NavigateDoorway(characterId);
+
+                LoadBoard();
+                LoadInventory();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not navigate doorway: " + ex.Message);
+            }
+        }
         private void btnPickup_Click(object sender, EventArgs e)
         {
             PickUpItem();
@@ -544,6 +559,9 @@ namespace CavesOfKharst.Forms
                 MovePlayer("d");
             else if (e.KeyCode == Keys.E)
                 PickUpItem();
+            else if (e.KeyCode == Keys.Q)
+                NavigateDoorway();
+            
         }
         private void btnMoveUp_Click(object sender, EventArgs e)
         {
