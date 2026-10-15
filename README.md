@@ -1,4 +1,4 @@
-# caves-of-kharst
+# Caves of Kharst
 This repo contains the game "Caves of Kharst" a multiplayer, dungeon delving, extraction puzzler, driven by a database, built for my DAT602 school assessment.
 
 The report folder contains ongoing development milestones describing the planning, and ongoing development.
