@@ -18,11 +18,12 @@ namespace CavesOfKharst.Forms
         private int characterId;
         private string characterName;
         private bool loggingOut = false;
+        private bool isReady = false;
 
         private User user;
         private FormLogin formLogin;
         private Form characterSelect;
-
+        
         private int tileSize = 63;
         private bool boardCreated = false;
 
@@ -129,6 +130,7 @@ namespace CavesOfKharst.Forms
         {
             CharacterDAO dao = new CharacterDAO();
             DataTable party = dao.GetParty(characterId);
+            
 
             // Clear player names
             lblPlayer1Name.Text = "";
@@ -168,6 +170,27 @@ namespace CavesOfKharst.Forms
             {
                 int playerId = Convert.ToInt32(
                     party.Rows[i]["player_character_id"]);
+
+                // Update the ready button
+                if (playerId == characterId)
+                {
+                    bool gameStarted = party.Rows[i]["game_id"] != DBNull.Value;
+
+                    if (gameStarted)
+                    {
+                        
+                        btnReady.BackColor = Color.FromArgb(192, 255, 192);
+                        btnReady.Text = "Game Starting...";
+                        btnReady.Enabled = false;
+                    }
+                    else
+                    {
+                        isReady = Convert.ToBoolean(party.Rows[i]["ready"]);
+                        btnReady.BackColor = isReady ? Color.FromArgb(192, 255, 192): Color.FromArgb(255, 192, 192);
+                        btnReady.Text = isReady ? "Ready!" : "Ready Up";
+                        btnReady.Enabled = true;
+                    }
+                }
 
                 string name = party.Rows[i]["player_name"].ToString();
 
@@ -345,7 +368,24 @@ namespace CavesOfKharst.Forms
 
         private void btnReady_Click(object sender, EventArgs e)
         {
+            try
+            {
+                CharacterDAO dao = new CharacterDAO();
+                dao.ToggleReady(characterId);
 
+                // Update button
+                isReady = !isReady;
+                btnReady.UseVisualStyleBackColor = false;
+                btnReady.BackColor = isReady ? Color.FromArgb(192, 255, 192) : Color.FromArgb(255, 192, 192);
+                btnReady.Text = isReady ? "Ready!" : "Ready Up";
+
+                // Refresh the party display
+                LoadParty();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not change ready status: " + ex.Message);
+            }
         }
 
         private void KickPlayer(int targetCharacterId, Button button)
@@ -466,8 +506,6 @@ namespace CavesOfKharst.Forms
                     return;
                 }
             }
-
-            MessageBox.Show("There are no items here to pick up.");
         }
         private void DropItem(int slotNo)
         {
