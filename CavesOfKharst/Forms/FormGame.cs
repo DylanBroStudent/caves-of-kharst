@@ -359,8 +359,26 @@ namespace CavesOfKharst.Forms
                 picture.Tag = slotNo;
             }
         }
-        
 
+        private void LoadScores()
+        {
+            CharacterDAO dao = new CharacterDAO();
+            DataTable scores = dao.GetScores(characterId);
+
+            Label[] scoreLabels =
+            {
+                lblPlayer1Score,
+                lblPlayer2Score,
+                lblPlayer3Score,
+                lblPlayer4Score
+            };
+
+            // update the latest scores
+            for (int i = 0; i < scores.Rows.Count && i < 4; i++)
+            {
+                scoreLabels[i].Text = scores.Rows[i]["score"].ToString();
+            }
+        }
         private void btnLogout_Click(object sender, EventArgs e)
         {
             CloseGame();
@@ -655,6 +673,7 @@ namespace CavesOfKharst.Forms
             LoadParty();
             LoadMessages();
             LoadBoard();
+            LoadScores();
         }
     }
 }

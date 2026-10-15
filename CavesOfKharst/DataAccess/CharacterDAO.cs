@@ -431,5 +431,23 @@ namespace CavesOfKharst.DataAccess
                 _connection.Close();
             }
         }
+        public DataTable GetScores(int characterId)
+        {
+            _connection.Open();
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand("score_get", _connection);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+
+                DataTable table = new DataTable();
+                table.Load(cmd.ExecuteReader());
+                return table;
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
     }
 }

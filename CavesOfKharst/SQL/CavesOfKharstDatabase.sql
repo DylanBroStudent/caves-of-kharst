@@ -2858,15 +2858,16 @@ CREATE PROCEDURE score_get (
 )
 BEGIN
     SELECT
-        player_name,
-        score
-    FROM party_scoreboard
-    WHERE party_id = (
-        SELECT party_id
-        FROM player_character
-        WHERE player_character_id = player_character_id_in
-    )
-    ORDER BY score DESC;
+		player_character_id,
+		player_name,
+		score
+	FROM party_scoreboard
+	WHERE party_id = (
+		SELECT party_id
+		FROM player_character
+		WHERE player_character_id = player_character_id_in
+	)
+	ORDER BY score DESC;
 END //
 DELIMITER ;
 
