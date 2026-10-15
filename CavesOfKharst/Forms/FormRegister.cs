@@ -57,6 +57,9 @@ namespace CavesOfKharst.Forms
             if (userDAO.Register(email, password))
             {
                 MessageBox.Show("Registration successful!");
+
+                formLogin.Show();
+                this.Close();
             }
             else
             {

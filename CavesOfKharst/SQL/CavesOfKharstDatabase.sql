@@ -303,6 +303,9 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS populate_game_data //
 CREATE PROCEDURE populate_game_data()
 BEGIN
+	-- admin account
+    INSERT INTO user_account(email, `password`, `role`) VALUES
+    ("admin", "Admin123", "admin");
 	-- ITEMS
     INSERT INTO item (`name`, `type`, `effect_id`, stack_size, point_value, `description`) VALUES
     -- coins
@@ -2329,7 +2332,7 @@ BEGIN
     DECLARE selected_quantity 		 INT;
     DECLARE spawn_found BOOLEAN DEFAULT TRUE;
     
-	-- set up cursor to retrieve every tile in the room instance
+	-- Cursor to iterate through all tiles in the room
     DECLARE tile_cursor CURSOR FOR
         SELECT tgi.tile_instance_id, t.spawn_table_id
         FROM tile_game_instance AS tgi
@@ -2425,7 +2428,8 @@ BEGIN
     DECLARE finished_ending BOOLEAN DEFAULT FALSE;
     DECLARE game_id_current INT;
     DECLARE lobby_room_id 	BIGINT;
-	-- more cursors yay
+
+	-- Get all games that have started and haven't generated caves yet
     DECLARE starting_games CURSOR FOR
         SELECT g.game_id, p.room_instance_id
         FROM game g
@@ -2434,6 +2438,7 @@ BEGIN
         WHERE g.start_time <= CURRENT_TIMESTAMP
           AND g.cave_generated = FALSE;
 	
+    -- Get all games that have been running for 30 minutes and haven't ended yet
     DECLARE ending_games CURSOR FOR
 		SELECT game_id
         FROM game
@@ -2485,14 +2490,6 @@ BEGIN
 
         CLOSE ending_games;
     END;
-    
-    -- Process NPCs
-    -- every third tick
-    IF mod((SELECT coalesce(max(tick_count), 0) FROM party), 3) = 0 THEN
-		CALL npc_process_tick();
-	END IF;
-    
-    -- TODO: Process timed effects
 END //
 DELIMITER ;
 
@@ -2507,6 +2504,16 @@ ENABLE
 DO
 BEGIN
 	CALL game_process_tick();
+
+    -- Process NPCs
+    -- every third tick
+    IF mod((SELECT coalesce(max(tick_count), 0) FROM party), 3) = 0 THEN
+		CALL npc_process_tick();
+	END IF;
+
+    -- TODO: Process timed effects
+
+
 END //
 DELIMITER ; 
 
@@ -2817,8 +2824,6 @@ DELIMITER ;
 */
 
 
-
-
 -- call procedures
 -- SETUP
 -- create the database
@@ -2830,6 +2835,15 @@ CALL populate_game_data();
 -- */
 
 -- END OF DDL --
+
+/*
+.___________. _______     _______.___________. __  .__   __.   _______ 
+|           ||   ____|   /       |           ||  | |  \ |  |  /  _____|
+`---|  |----`|  |__     |   (----`---|  |----`|  | |   \|  | |  |  __  
+    |  |     |   __|     \   \       |  |     |  | |  . `  | |  | |_ | 
+    |  |     |  |____.----)   |      |  |     |  | |  |\   | |  |__| | 
+    |__|     |_______|_______/       |__|     |__| |__| \__|  \______| 
+*/
 
 -- START OF TESTING PHASE 1 - PRE GAME --
 -- please comment all previous code out and uncomment the following code up to PHASE 2 - IN GAME --

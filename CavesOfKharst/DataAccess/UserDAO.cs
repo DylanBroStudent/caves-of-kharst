@@ -1,6 +1,7 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,14 +21,14 @@ namespace CavesOfKharst.DataAccess
             {
                 _connection.Open();
 
-                string query =
-                    "SELECT * FROM user_account " +
-                    "WHERE email = @email AND password = @password;";
+                MySqlCommand command = new MySqlCommand(
+                    "account_login", 
+                    _connection
+                );
 
-                MySqlCommand command = new MySqlCommand(query, _connection);
-
-                command.Parameters.AddWithValue("@email", email);
-                command.Parameters.AddWithValue("@password", password);
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddWithValue("@email_in", email);
+                command.Parameters.AddWithValue("@password_in", password);
 
                 using (MySqlDataReader reader = command.ExecuteReader())
                 {
@@ -36,6 +37,7 @@ namespace CavesOfKharst.DataAccess
                         int id = reader.GetInt32("user_account_id");
                         string userEmail = reader.GetString("email");
                         string userPassword = reader.GetString("password");
+
                         return new User(id, userEmail, userPassword);
                     }
                     // return null if no user found
@@ -54,16 +56,18 @@ namespace CavesOfKharst.DataAccess
             {
                 _connection.Open();
 
-                string query =
-                    "INSERT INTO user_account (email, password) " +
-                    "VALUES (@email, @password);";
+                MySqlCommand command = new MySqlCommand(
+                    "account_register", 
+                    _connection
+                );
 
-                MySqlCommand command = new MySqlCommand(query, _connection);
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddWithValue("@email_in", email);
+                command.Parameters.AddWithValue("@password_in", password);
+                command.Parameters.AddWithValue("@administrator_flag", false);
 
-                command.Parameters.AddWithValue("@email", email);
-                command.Parameters.AddWithValue("@password", password);
-
-                return command.ExecuteNonQuery() == 1;
+                command.ExecuteNonQuery();
+                return true;
             }
             // catch duplicates
             catch(MySqlException ex) when (ex.Number == 1062)
