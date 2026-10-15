@@ -328,10 +328,9 @@ namespace CavesOfKharst.DataAccess
         public string MoveCharacter(int characterId, string direction)
         {
             string result = "";
+            _connection.Open();
             try
             {
-                _connection.Open();
-
                 MySqlCommand cmd = new MySqlCommand("gameplay_move_in_direction", _connection);
 
                 cmd.CommandType = CommandType.StoredProcedure;
@@ -346,6 +345,74 @@ namespace CavesOfKharst.DataAccess
             }
 
             return result;
+        }
+        public DataTable GetInventory(int characterId)
+        {
+            _connection.Open();
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand("inventory_get", _connection);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+                cmd.Parameters.AddWithValue("inventory_type_in", "carried");
+
+                DataTable table = new DataTable();
+                table.Load(cmd.ExecuteReader());
+                return table;
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public void PickUpItem(int characterId, long entityId)
+        {
+            _connection.Open();
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand("item_pick_up", _connection);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+                cmd.Parameters.AddWithValue("entity_instance_id_in", entityId);
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public void DropItem(int characterId, int slotNo)
+        {
+            _connection.Open();
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand("inventory_drop", _connection);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+                cmd.Parameters.AddWithValue("slot_no_in", slotNo);
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+        public void ToggleReady(int characterId)
+        {
+            _connection.Open();
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand("party_toggle_ready", _connection);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("player_character_id_in", characterId);
+                cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                _connection.Close();
+            }
         }
     }
 }

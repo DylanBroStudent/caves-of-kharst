@@ -40,16 +40,18 @@ namespace CavesOfKharst.Forms
         {
             InitializeComponent();
 
-            characterId = id;
-            characterName = name;
-            this.user = user;
-            this.formLogin = formLogin;
+            characterId     = id;
+            characterName   = name;
+            this.user       = user;
+            this.formLogin  = formLogin;
             this.characterSelect = characterSelect;
 
             this.Text = $"Caves of Kharst - {characterName}";
 
             LoadParty();
             LoadEntityImages();
+            SetupInventoryGrid();
+            LoadInventory();
         }
 
         private void LoadEntityImages()
@@ -78,6 +80,31 @@ namespace CavesOfKharst.Forms
             entityImages["wardrobe"] = Image.FromFile(Path.Combine(folder, "wardrobe.png"));
         }
 
+        private void SetupInventoryGrid()
+        {
+            gridInventory.Controls.Clear();
+            gridInventory.ColumnCount = 8;
+            gridInventory.RowCount = 1;
+
+            for (int i = 0; i < 8; i++)
+            {
+                PictureBox picture  = new PictureBox();
+
+                // Add click event handler for dropping items
+                picture.Click += (sender, e) =>
+                {
+                    if (picture.Tag != null)
+                        DropItem(Convert.ToInt32(picture.Tag));
+                };
+
+                picture.Dock        = DockStyle.Fill;
+                picture.SizeMode    = PictureBoxSizeMode.Zoom;
+                picture.BackColor   = Color.FromArgb(20, 35, 65);
+
+                gridInventory.Controls.Add(picture, i, 0);
+
+            }
+        }
         private void CloseGame()
         {
             loggingOut = true;
@@ -161,22 +188,22 @@ namespace CavesOfKharst.Forms
                 if (i == 0)
                 {
                     playerLabel = lblPlayer1Name;
-                    kickButton = btnKickPlayer1;
+                    kickButton  = btnKickPlayer1;
                 }
                 else if (i == 1)
                 {
                     playerLabel = lblPlayer2Name;
-                    kickButton = btnKickPlayer2;
+                    kickButton  = btnKickPlayer2;
                 }
                 else if (i == 2)
                 {
                     playerLabel = lblPlayer3Name;
-                    kickButton = btnKickPlayer3;
+                    kickButton  = btnKickPlayer3;
                 }
                 else if (i == 3)
                 {
                     playerLabel = lblPlayer4Name;
-                    kickButton = btnKickPlayer4;
+                    kickButton  = btnKickPlayer4;
                 }
 
                 playerLabel.Text = name;
@@ -210,6 +237,7 @@ namespace CavesOfKharst.Forms
                         Convert.ToInt32(row["position_y"]) * tileSize);
 
                     tile.BackColor = Color.FromArgb(10, 20, 50);
+                    tile.BorderStyle = BorderStyle.FixedSingle;
                     panelGameBoard.Controls.Add(tile);
                 }
 
@@ -246,11 +274,12 @@ namespace CavesOfKharst.Forms
                 // Create an image only for a new entity
                 if (!boardEntities.ContainsKey(id))
                 {
-                    PictureBox picture = new PictureBox();
-                    picture.Size = new Size(tileSize, tileSize);
-                    picture.SizeMode = PictureBoxSizeMode.Zoom;
-                    picture.BackColor = Color.FromArgb(10, 20, 50);
-                    picture.Image = entityImages[entityName];
+                    PictureBox picture  = new PictureBox();
+                    picture.Size        = new Size(tileSize, tileSize);
+                    picture.SizeMode    = PictureBoxSizeMode.Zoom;
+                    picture.BackColor   = Color.FromArgb(10, 20, 50);
+                    picture.BorderStyle = BorderStyle.FixedSingle;
+                    picture.Image       = entityImages[entityName];
                     
                     boardEntities[id] = picture;
                     panelGameBoard.Controls.Add(picture);
@@ -279,6 +308,35 @@ namespace CavesOfKharst.Forms
                 boardEntities.Remove(id);
             }
         }
+        private void LoadInventory()
+        {
+            CharacterDAO dao = new CharacterDAO();
+            DataTable inventory = dao.GetInventory(characterId);
+
+            for (int i = 0; i < 8; i++)
+            {
+                PictureBox picture = (PictureBox)gridInventory.GetControlFromPosition(i, 0);
+                picture.Image = null;
+                picture.Tag = null;
+            }
+
+            foreach (DataRow row in inventory.Rows)
+            {
+                int slotNo = Convert.ToInt32(row["slot_no"]);
+                string itemName = row["item_name"].ToString();
+
+                if (slotNo < 1 || slotNo > 8)
+                    continue;
+
+                PictureBox picture = (PictureBox)gridInventory.GetControlFromPosition(slotNo - 1, 0);
+
+                if (entityImages.ContainsKey(itemName))
+                    picture.Image = entityImages[itemName];
+
+                picture.Tag = slotNo;
+            }
+        }
+        
 
         private void btnLogout_Click(object sender, EventArgs e)
         {
@@ -370,7 +428,61 @@ namespace CavesOfKharst.Forms
 
         private void btnPickup_Click(object sender, EventArgs e)
         {
+            PickUpItem();
+        }
+        private void PickUpItem()
+        {
+            CharacterDAO dao = new CharacterDAO();
+            DataTable room = dao.GetRoom(characterId);
 
+            int playerX = -1;
+            int playerY = -1;
+
+            // Find the player's position
+            foreach (DataRow row in room.Rows)
+            {
+                if (row["player_character_id"] != DBNull.Value &&
+                    Convert.ToInt32(row["player_character_id"]) == characterId)
+                {
+                    playerX = Convert.ToInt32(row["position_x"]);
+                    playerY = Convert.ToInt32(row["position_y"]);
+                    break;
+                }
+            }
+
+            // Find the first item on the player's tile
+            foreach (DataRow row in room.Rows)
+            {
+                if (row["item_name"] != DBNull.Value &&
+                    Convert.ToInt32(row["position_x"]) == playerX &&
+                    Convert.ToInt32(row["position_y"]) == playerY)
+                {
+                    dao.PickUpItem(
+                        characterId,
+                        Convert.ToInt64(row["entity_instance_id"]));
+
+                    LoadBoard();
+                    LoadInventory();
+                    return;
+                }
+            }
+
+            MessageBox.Show("There are no items here to pick up.");
+        }
+        private void DropItem(int slotNo)
+        {
+            try
+            {
+                CharacterDAO dao = new CharacterDAO();
+                dao.DropItem(characterId, slotNo);
+
+                LoadInventory();
+                LoadBoard();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not drop item: " + ex.Message);
+            }
         }
 
         private void MovePlayer(string direction)
@@ -392,6 +504,8 @@ namespace CavesOfKharst.Forms
                 MovePlayer("s");
             else if (e.KeyCode == Keys.D || e.KeyCode == Keys.Right)
                 MovePlayer("d");
+            else if (e.KeyCode == Keys.E)
+                PickUpItem();
         }
         private void btnMoveUp_Click(object sender, EventArgs e)
         {
