@@ -460,6 +460,7 @@
             textChat.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             textChat.Location = new Point(3, 283);
             textChat.Name = "textChat";
+            textChat.ReadOnly = true;
             textChat.Size = new Size(400, 76);
             textChat.TabIndex = 15;
             textChat.Text = "";

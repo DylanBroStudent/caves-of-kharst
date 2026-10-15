@@ -274,8 +274,47 @@ namespace CavesOfKharst.Forms
 
         private void btnSend_Click(object sender, EventArgs e)
         {
+            string contents = textMessage.Text.Trim();
 
+            if (contents == "")
+                return;
+
+            try
+            {
+                CharacterDAO dao = new CharacterDAO();
+                dao.SendMessage(characterId, contents);
+
+                textMessage.Clear();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not send message: " + ex.Message);
+            }
         }
+
+        private void LoadMessages()
+        {
+            CharacterDAO dao = new CharacterDAO();
+            DataTable messages = dao.GetMessages(characterId);
+
+            textChat.Clear();
+
+            foreach (DataRow row in messages.Rows)
+            {
+                string sender = row["sender_name"].ToString();
+                string contents = row["contents"].ToString();
+
+                textChat.AppendText(
+                    sender + ": " + contents + Environment.NewLine);
+            }
+
+            // Scroll to the latest message
+            textChat.SelectionStart =
+                textChat.Text.Length;
+
+            textChat.ScrollToCaret();
+        }
+
         private void FormGame_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (loggingOut)
@@ -303,6 +342,7 @@ namespace CavesOfKharst.Forms
         private void refreshTimer_Tick(object sender, EventArgs e)
         {
             LoadParty();
+            LoadMessages();
         }
     }
 }

@@ -262,5 +262,50 @@ namespace CavesOfKharst.DataAccess
                 _connection.Close();
             }
         }
+
+
+        public void SendMessage(int characterId, string contents)
+        {
+            _connection.Open();
+
+            try
+            {
+                MySqlCommand command = new MySqlCommand("party_send_message", _connection);
+
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddWithValue("player_character_id_in", characterId);
+                command.Parameters.AddWithValue("contents_in", contents);
+
+                command.ExecuteNonQuery();
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+
+        public DataTable GetMessages(int characterId)
+        {
+            DataTable table = new DataTable();
+
+            _connection.Open();
+
+            try
+            {
+                MySqlCommand command = new MySqlCommand("party_get_messages", _connection);
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddWithValue("player_character_id_in", characterId);
+
+                MySqlDataAdapter adapter = new MySqlDataAdapter(command);
+                adapter.Fill(table);
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return table;
+        }
     }
 }
